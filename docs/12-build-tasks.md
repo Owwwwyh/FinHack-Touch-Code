@@ -67,14 +67,18 @@ locally or on real cloud resources, not when a spec or Terraform contract exists
 **DoD:** `terraform apply` creates real Lambda functions and a callable AWS bridge URL.
 
 ### `agent:cloud-ali-1` — Finish deployable Alibaba compute
-**Spec:** [docs/06-alibaba-services.md](06-alibaba-services.md), [docs/13-deployment.md](13-deployment.md)
-**Current blocker:** the compute modules are still scaffold-only, and the Alibaba root is currently pinned to `aliyun/alibabacloudstack`, which is a poor fit for an unvalidated public-cloud FC/API Gateway/EAS rollout.
+**Spec:** [docs/06-alibaba-services.md](06-alibaba-services.md), [docs/13-deployment.md](13-deployment.md), [docs/15-alibaba-manual-deploy-runbook.md](15-alibaba-manual-deploy-runbook.md)
+**Current blocker:** the compute modules are still scaffold-only, the Alibaba root is still pinned to `aliyun/alibabacloudstack`, and the FC handler runtime contract does not yet match the Terraform env/table contract.
 **Tasks:**
-1. Replace the scaffold FC module with real Function Compute service/function resources.
-2. Replace the scaffold API Gateway module with real public route bindings.
-3. Replace the scaffold EAS module with a real score-refresh deployment, or document and wire a temporary fallback if EAS is unavailable.
-4. Output the real public API base URL.
-5. Apply and curl `/v1/wallet/balance`, `/v1/score/policy`, `/v1/score/refresh`, and `/v1/tokens/settle`.
+1. Switch `infra/alibaba` from `aliyun/alibabacloudstack` to the public-cloud `aliyun/alicloud` provider and choose the Terraform auth path.
+2. Add an Alibaba packaging flow for `backend/fc`, `backend/lib`, and `backend/requirements.txt`.
+3. Replace the scaffold FC module with real Function Compute resources for the six handlers that already exist in `backend/fc`.
+4. Replace the scaffold API Gateway module with real public route bindings for those six handlers.
+5. Align handler env names with deploy-time env vars, especially `TABLESTORE_INSTANCE`, `OSS_BUCKET_PUBKEYS`, `COGNITO_ISSUER`, and the missing OTS/OSS credential vars.
+6. Align the Tablestore contract by externalizing table names and creating or renaming the tables the handlers actually need.
+7. Replace the scaffold EAS module with a real score-refresh deployment, or explicitly keep `EAS_ENDPOINT=""` for the first live slice.
+8. Output the real public API base URL and internal ingest URL, then feed that ingest URL back into AWS.
+9. Apply and curl `/v1/wallet/balance`, `/v1/score/policy`, `/v1/score/refresh`, and `/v1/tokens/settle`.
 **DoD:** Alibaba exposes real public routes backed by deployed compute.
 
 ### `agent:backend-1` — Harden runtime handlers for cloud deploy

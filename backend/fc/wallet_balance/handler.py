@@ -11,22 +11,11 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
+from lib.alibaba_runtime import create_tablestore_client, wallets_table_name
 from lib import demo_state
 from lib.jwt_middleware import JwtVerificationError, get_jwt_middleware
 
 logger = logging.getLogger()
-
-
-def _get_ots_client():
-    import tablestore
-
-    return tablestore.OTSClient(
-        os.environ["TABLESTORE_ENDPOINT"],
-        os.environ["OTS_ACCESS_KEY_ID"],
-        os.environ["OTS_ACCESS_KEY_SECRET"],
-        os.environ["TABLESTORE_INSTANCE"],
-    )
-
 
 def _error(start_response, http_status: str, code: str, message: str, request_id: str):
     body = {"error": {"code": code, "message": message, "request_id": request_id}}
@@ -65,14 +54,14 @@ def handler(environ, start_response):
     try:
         import tablestore
 
-        client = _get_ots_client()
+        client = create_tablestore_client(environ)
         primary_key = [("user_id", user_id)]
         columns_to_get = tablestore.ColumnsToGet([
             "balance_myr", "balance_version", "last_updated",
             "safe_offline_balance_myr", "policy_version",
         ])
         consumed, return_row, _ = client.get_row(
-            "wallets", primary_key, columns_to_get, None, 1
+            wallets_table_name(), primary_key, columns_to_get, None, 1
         )
     except Exception as e:
         logger.error("Tablestore read failed: %s", e)

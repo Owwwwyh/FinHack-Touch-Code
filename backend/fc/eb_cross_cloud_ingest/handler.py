@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
+from lib.alibaba_runtime import create_tablestore_client, pending_batches_table_name, wallets_table_name
 from lib import demo_state
 from lib.bridge_auth import verify_body
 
@@ -69,6 +70,7 @@ def handler(environ, start_response):
             request_id,
         )
 
+    detail["_fc_environ"] = environ
     applied_count = apply_settlement_completed_event(event)
 
     start_response("200 OK", [
@@ -95,13 +97,13 @@ def apply_settlement_completed_event(event: dict) -> int:
     if not os.environ.get("TABLESTORE_ENDPOINT"):
         return demo_state.apply_settlement_results(batch_id, results)
 
-    return _apply_results_tablestore(batch_id, results)
+    return _apply_results_tablestore(batch_id, results, detail.get("_fc_environ"))
 
 
-def _apply_results_tablestore(batch_id: str, results: list[dict]) -> int:
+def _apply_results_tablestore(batch_id: str, results: list[dict], environ: dict | None) -> int:
     import tablestore
 
-    client = _get_ots_client()
+    client = create_tablestore_client(environ or {})
     applied = 0
 
     pending_row = tablestore.Row(
@@ -114,7 +116,7 @@ def _apply_results_tablestore(batch_id: str, results: list[dict]) -> int:
         ],
     )
     client.put_row(
-        "pending_batches",
+        pending_batches_table_name(),
         pending_row,
         tablestore.Condition(tablestore.RowExistenceExpectation.IGNORE),
     )
@@ -157,7 +159,7 @@ def _update_wallet_balance(client, user_id: str, delta_cents: int, policy_versio
         "safe_offline_balance_myr",
         "policy_version",
     ])
-    _, row, _ = client.get_row("wallets", pk, cols, None, 1)
+    _, row, _ = client.get_row(wallets_table_name(), pk, cols, None, 1)
 
     attrs = {col[0]: col[1] for col in row.attribute_columns} if row else {}
     balance_cents = _parse_myr(attrs.get("balance_myr", "0.00"))
@@ -178,20 +180,9 @@ def _update_wallet_balance(client, user_id: str, delta_cents: int, policy_versio
         ],
     )
     client.put_row(
-        "wallets",
+        wallets_table_name(),
         updated,
         tablestore.Condition(tablestore.RowExistenceExpectation.IGNORE),
-    )
-
-
-def _get_ots_client():
-    import tablestore
-
-    return tablestore.OTSClient(
-        os.environ["TABLESTORE_ENDPOINT"],
-        os.environ["OTS_ACCESS_KEY_ID"],
-        os.environ["OTS_ACCESS_KEY_SECRET"],
-        os.environ["TABLESTORE_INSTANCE"],
     )
 
 

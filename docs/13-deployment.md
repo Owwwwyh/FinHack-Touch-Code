@@ -102,7 +102,11 @@ Status by module:
 2. [infra/alibaba/apigw/main.tf](/Users/mkfoo/Desktop/FinHack-Touch-Code/infra/alibaba/apigw/main.tf:1) only defines a public domain contract. It does not create real API Gateway routes.
 3. [infra/alibaba/eas/main.tf](/Users/mkfoo/Desktop/FinHack-Touch-Code/infra/alibaba/eas/main.tf:1) only defines an endpoint contract. It does not create a PAI-EAS deployment.
 4. The Alibaba root still uses the `aliyun/alibabacloudstack` provider, which is documented for Apsara Stack rather than normal public Alibaba Cloud. That provider choice now looks like the main blocker to a safe FC/API Gateway/EAS implementation.
-5. The mobile app used to hardcode the local backend URL. It now reads build-time values via `--dart-define`, which still needs to be wired into the release workflow.
+5. The FC scaffold env contract does not match the Python handlers. The handlers expect names such as `TABLESTORE_INSTANCE`, `OSS_BUCKET_PUBKEYS`, and `COGNITO_ISSUER`, but the current scaffold emits `OTS_INSTANCE`, `OSS_PUBKEY_BUCKET`, and omits some required vars entirely.
+6. The Tablestore contract is inconsistent. The handlers currently hard-code tables such as `devices`, `wallets`, `pending_batches`, and `score_policies`, while Terraform creates prefixed tables and does not create `pending_batches` or `score_policies`.
+7. Only six Alibaba FC handler entrypoints exist in `backend/fc`, while the target design docs still describe an 11-function surface.
+8. There is no Alibaba FC packaging step yet for `backend/fc`, `backend/lib`, and `backend/requirements.txt`.
+9. The mobile app used to hardcode the local backend URL. It now reads build-time values via `--dart-define`, which still needs to be wired into the release workflow.
 
 ## 5.1 AWS Compute Deploy Steps
 
@@ -129,6 +133,11 @@ Notes:
 - The deployed Lambdas resolve `secret://...` env values from AWS Secrets Manager at runtime.
 - The AWS bridge URL now comes from a real HTTP API route: `POST /internal/alibaba/events`.
 
+## 5.2 Alibaba Operator Checklist
+
+For the practical Alibaba next move after AWS, use
+[docs/15-alibaba-manual-deploy-runbook.md](15-alibaba-manual-deploy-runbook.md).
+
 ## 6. Environment Wiring
 
 ### Flutter build flags
@@ -151,20 +160,27 @@ Notes:
 | `MODEL_BUCKET` | `tng-finhack-aws-models` |
 | `LOG_LEVEL` | `INFO` |
 
-### Alibaba FC functions (set in ROS)
+### Alibaba FC handler env vars (handler-facing names)
 | Var | Notes |
 |---|---|
-| `OTS_INSTANCE` | `tng-finhack` |
-| `OSS_PUBKEY_BUCKET` | `tng-finhack-pubkeys` |
-| `OSS_MODEL_BUCKET` | `tng-finhack-models` |
-| `RDS_DSN` | from Alibaba KMS `tng-finhack/rds-dsn` |
-| `EAS_ENDPOINT` | from KMS `tng-finhack/eas-endpoint` |
-| `AWS_BRIDGE_URL` | from KMS `tng-finhack/aws-bridge-url` |
-| `AWS_BRIDGE_HMAC_SECRET` | from KMS |
-| `COGNITO_JWKS_URL` | from KMS |
+| `TABLESTORE_ENDPOINT` | OTS endpoint used by all stateful handlers |
+| `TABLESTORE_INSTANCE` | Tablestore instance name; current scaffold incorrectly uses `OTS_INSTANCE` |
+| `OTS_ACCESS_KEY_ID` | Tablestore SDK credential input |
+| `OTS_ACCESS_KEY_SECRET` | Tablestore SDK credential input |
+| `OSS_ENDPOINT` | Regional OSS endpoint for pubkey upload |
+| `OSS_ACCESS_KEY_ID` | OSS SDK credential input |
+| `OSS_ACCESS_KEY_SECRET` | OSS SDK credential input |
+| `OSS_BUCKET_PUBKEYS` | pubkey bucket name; current scaffold incorrectly uses `OSS_PUBKEY_BUCKET` |
+| `COGNITO_JWKS_URL` | AWS Cognito JWKS URL |
+| `COGNITO_ISSUER` | AWS Cognito issuer URL derived from the user pool |
+| `AWS_BRIDGE_URL` | live AWS inbound bridge URL |
+| `AWS_BRIDGE_HMAC_SECRET` | shared bridge secret |
+| `EAS_ENDPOINT` | optional live score refresh endpoint |
+| `EAS_TOKEN` | optional PAI-EAS auth token |
+| `EAS_TIMEOUT_SECONDS` | score refresh timeout override |
 
-These variables are correct for the runtime handlers, but the compute modules that
-should apply them are still scaffold-only.
+These are the names the current Python handlers actually read. The compute modules
+that should apply them are still scaffold-only.
 
 ## 7. Secrets
 
@@ -181,12 +197,14 @@ should apply them are still scaffold-only.
 
 1. Apply AWS foundation modules that are already real.
 2. Build the shared AWS Lambda artifact with `./infra/aws/lambda/build_package.sh`.
-3. Apply AWS compute.
-4. Apply Alibaba foundation modules that are already real.
-5. Replace the Alibaba scaffold compute modules with real deploy resources.
+3. Apply AWS compute and record `aws_bridge_invoke_url` plus `cognito_jwks_uri`.
+4. Replace the Alibaba provider/scaffold/env/table contract gaps called out above.
+5. Apply Alibaba foundation modules that are already real.
 6. Apply Alibaba compute.
-7. Seed two demo users, devices, and balances.
-8. Run the smoke tests below.
+7. Record the live Alibaba ingest URL `/v1/_internal/eb/aws-bridge`.
+8. Re-apply AWS with that ingest URL as `alibaba_ingest_url`.
+9. Seed two demo users, devices, and balances.
+10. Run the smoke tests below.
 
 ## 9. Smoke Tests
 

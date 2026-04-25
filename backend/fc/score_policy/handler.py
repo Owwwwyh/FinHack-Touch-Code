@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
+from lib.alibaba_runtime import create_tablestore_client, score_policies_table_name
 from lib.jwt_middleware import JwtVerificationError, get_jwt_middleware
 
 logger = logging.getLogger()
@@ -41,18 +42,6 @@ def _error(start_response, http_status: str, code: str, message: str, request_id
     ])
     return [json.dumps(body).encode("utf-8")]
 
-
-def _get_ots_client():
-    import tablestore
-
-    return tablestore.OTSClient(
-        os.environ["TABLESTORE_ENDPOINT"],
-        os.environ["OTS_ACCESS_KEY_ID"],
-        os.environ["OTS_ACCESS_KEY_SECRET"],
-        os.environ["TABLESTORE_INSTANCE"],
-    )
-
-
 def handler(environ, start_response):
     request_id = environ.get("HTTP_X_REQUEST_ID", f"req_{uuid.uuid4().hex[:12]}")
 
@@ -76,11 +65,11 @@ def handler(environ, start_response):
     try:
         import tablestore
 
-        client = _get_ots_client()
+        client = create_tablestore_client(environ)
         # Read the __latest__ pointer row
         pk = [("policy_version", "__latest__")]
         cols = tablestore.ColumnsToGet(["active_version"])
-        _, pointer_row, _ = client.get_row("score_policies", pk, cols, None, 1)
+        _, pointer_row, _ = client.get_row(score_policies_table_name(), pk, cols, None, 1)
 
         active_version = "v3.2026-04-22"
         if pointer_row:
@@ -93,7 +82,7 @@ def handler(environ, start_response):
             "released_at", "model_format", "model_url", "model_sha256",
             "model_sigstore_sig", "limits_json",
         ])
-        _, policy_row, _ = client.get_row("score_policies", policy_pk, policy_cols, None, 1)
+        _, policy_row, _ = client.get_row(score_policies_table_name(), policy_pk, policy_cols, None, 1)
 
         if policy_row is None:
             # Fall back to default

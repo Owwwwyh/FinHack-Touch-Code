@@ -71,20 +71,28 @@ def test_alibaba_fc_module_contains_required_routes_and_env_matrix():
         assert route in text
 
     for env_name in (
-        "OTS_INSTANCE",
-        "OSS_PUBKEY_BUCKET",
+        "TABLESTORE_INSTANCE",
+        "TABLESTORE_ENDPOINT",
+        "OSS_BUCKET_PUBKEYS",
+        "OSS_ENDPOINT",
         "OSS_MODEL_BUCKET",
         "EAS_ENDPOINT",
         "AWS_BRIDGE_URL",
         "AWS_BRIDGE_HMAC_SECRET",
         "COGNITO_JWKS_URL",
+        "COGNITO_ISSUER",
+        "TABLE_NAME_PENDING_BATCHES",
+        "TABLE_NAME_SCORE_POLICIES",
     ):
         assert env_name in text
+
+    assert "alicloud_fcv3_function" in text
+    assert "alicloud_fcv3_trigger" in text
 
 
 def test_alibaba_apigw_module_exposes_public_domain_contract():
     text = _read("infra/alibaba/apigw/main.tf")
 
-    assert "api-finhack.example.com" in text
-    assert "custom_domain" in text
-    assert "/v1/score/refresh" in text
+    assert "backend_url" in text
+    assert "public_api_base_url" in text
+    assert "route_map" in text

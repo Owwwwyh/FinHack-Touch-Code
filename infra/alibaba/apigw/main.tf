@@ -1,4 +1,6 @@
-# Scaffolded Alibaba API Gateway public contract for the demo URL.
+# Live public route exposure contract derived from Function Compute HTTP triggers.
+# Classic CloudAPI in this account/region rejected the HTTP backend type, so the
+# first working public slice uses the FC trigger URLs directly.
 
 variable "custom_domain" {
   type    = string
@@ -11,35 +13,19 @@ variable "route_map" {
     path          = string
     function_name = string
     handler_path  = string
+    handler       = string
     auth          = string
+    cpu           = number
+    memory_size   = number
+    timeout       = number
+    backend_url   = string
   }))
-  default = {
-    score_refresh = {
-      method        = "POST"
-      path          = "/v1/score/refresh"
-      function_name = "score-refresh"
-      handler_path  = "../../../backend/fc/score_refresh/handler.py"
-      auth          = "jwt"
-    }
-  }
-}
-
-locals {
-  custom_domain       = var.custom_domain
-  public_api_base_url = "https://${local.custom_domain}"
-}
-
-resource "terraform_data" "public_api_contract" {
-  input = {
-    custom_domain = local.custom_domain
-    routes        = var.route_map
-  }
 }
 
 output "public_api_base_url" {
-  value = local.public_api_base_url
+  value = ""
 }
 
 output "route_map" {
-  value = terraform_data.public_api_contract.input.routes
+  value = var.route_map
 }

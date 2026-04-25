@@ -57,3 +57,4 @@ app.*.map.json
 *.tfstate.*
 infra/aws/terraform.tfvars
 infra/aws/lambda/dist/
+infra/alibaba/fc/dist/

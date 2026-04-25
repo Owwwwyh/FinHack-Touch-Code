@@ -3,71 +3,28 @@
 
 terraform {
   required_providers {
-    alibabacloudstack = {
-      source = "aliyun/alibabacloudstack"
+    alicloud = {
+      source = "aliyun/alicloud"
     }
   }
 }
 
 # Models bucket (TF Lite artifacts)
-resource "alibabacloudstack_oss_bucket" "models" {
+resource "alicloud_oss_bucket" "models" {
   bucket = "${local.project}-models-${var.account_id}"
 
   acl = "private"
-
-  sse_rule {
-    sse_algorithm = "AES256"
-  }
 
   tags = {
     Name = "${local.project}-models"
   }
 }
 
-resource "alibabacloudstack_oss_bucket_lifecycle" "models_lifecycle" {
-  bucket = alibabacloudstack_oss_bucket.models.bucket
-
-  rule {
-    id     = "archive-old-models"
-    status = "Enabled"
-
-    prefix = "credit/v"
-
-    noncurrent_version_expiration {
-      days = 60
-    }
-
-    transition {
-      days          = 60
-      storage_class = "IA"
-    }
-  }
-}
-
-# Pubkeys bucket (device public key directory)
-resource "alibabacloudstack_oss_bucket" "pubkeys" {
-  bucket = "${local.project}-pubkeys-${var.account_id}"
-
-  acl = "private"
-
-  sse_rule {
-    sse_algorithm = "AES256"
-  }
-
-  tags = {
-    Name = "${local.project}-pubkeys"
-  }
-}
-
 # Static assets bucket (app config, splash, ToS, Privacy)
-resource "alibabacloudstack_oss_bucket" "static" {
+resource "alicloud_oss_bucket" "static" {
   bucket = "${local.project}-static-${var.account_id}"
 
   acl = "private"
-
-  sse_rule {
-    sse_algorithm = "AES256"
-  }
 
   tags = {
     Name = "${local.project}-static"
@@ -75,12 +32,12 @@ resource "alibabacloudstack_oss_bucket" "static" {
 }
 
 # Bucket CORS policy for mobile app
-resource "alibabacloudstack_oss_bucket_cors" "static_cors" {
-  bucket = alibabacloudstack_oss_bucket.static.bucket
+resource "alicloud_oss_bucket_cors" "static_cors" {
+  bucket = alicloud_oss_bucket.static.bucket
 
   cors_rule {
     allowed_headers = ["*"]
-    allowed_methods = ["GET", "HEAD", "OPTIONS"]
+    allowed_methods = ["GET"]
     allowed_origins = [
       "https://*.tngfinhack.app",
       "tngfinhack://"
@@ -95,6 +52,11 @@ variable "account_id" {
   type        = string
 }
 
+variable "region" {
+  description = "Alibaba region used to render bucket hostnames"
+  type        = string
+}
+
 # Locals
 locals {
   project = "tng-finhack"
@@ -102,25 +64,27 @@ locals {
 
 # Outputs
 output "models_bucket" {
-  value = alibabacloudstack_oss_bucket.models.bucket
+  value = alicloud_oss_bucket.models.bucket
 }
 
 output "models_bucket_domain" {
-  value = alibabacloudstack_oss_bucket.models.bucket_domain_name
+  value = format("%s.oss-%s.aliyuncs.com", alicloud_oss_bucket.models.bucket, var.region)
 }
 
 output "pubkeys_bucket" {
-  value = alibabacloudstack_oss_bucket.pubkeys.bucket
+  # Temporary hackathon simplification: store device public keys in the models
+  # bucket under a dedicated prefix until the account allows a separate OSS bucket.
+  value = alicloud_oss_bucket.models.bucket
 }
 
 output "pubkeys_bucket_domain" {
-  value = alibabacloudstack_oss_bucket.pubkeys.bucket_domain_name
+  value = format("%s.oss-%s.aliyuncs.com", alicloud_oss_bucket.models.bucket, var.region)
 }
 
 output "static_bucket" {
-  value = alibabacloudstack_oss_bucket.static.bucket
+  value = alicloud_oss_bucket.static.bucket
 }
 
 output "static_bucket_domain" {
-  value = alibabacloudstack_oss_bucket.static.bucket_domain_name
+  value = format("%s.oss-%s.aliyuncs.com", alicloud_oss_bucket.static.bucket, var.region)
 }

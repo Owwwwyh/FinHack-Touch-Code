@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
+from lib.alibaba_runtime import create_oss_bucket, create_tablestore_client, device_table_name, wallets_table_name
 from lib.jwt_middleware import JwtVerificationError, get_jwt_middleware
 
 logger = logging.getLogger()
@@ -30,31 +31,6 @@ def _error(start_response, http_status: str, code: str, message: str, request_id
         ("X-API-Version", "v1"),
     ])
     return [json.dumps(body).encode("utf-8")]
-
-
-def _get_ots_client():
-    import tablestore
-
-    return tablestore.OTSClient(
-        os.environ["TABLESTORE_ENDPOINT"],
-        os.environ["OTS_ACCESS_KEY_ID"],
-        os.environ["OTS_ACCESS_KEY_SECRET"],
-        os.environ["TABLESTORE_INSTANCE"],
-    )
-
-
-def _get_oss_bucket():
-    import oss2
-
-    auth = oss2.Auth(
-        os.environ["OSS_ACCESS_KEY_ID"],
-        os.environ["OSS_ACCESS_KEY_SECRET"],
-    )
-    return oss2.Bucket(
-        auth,
-        os.environ["OSS_ENDPOINT"],
-        os.environ.get("OSS_BUCKET_PUBKEYS", "tng-finhack-pubkeys"),
-    )
 
 
 def _generate_kid() -> str:
@@ -123,12 +99,12 @@ def handler(environ, start_response):
     try:
         import tablestore
 
-        client = _get_ots_client()
+        client = create_tablestore_client(environ)
 
         # Check device count for user
         primary_key = [("user_id", user_id)]
         cols = tablestore.ColumnsToGet(["device_count"])
-        _, wallet_row, _ = client.get_row("wallets", primary_key, cols, None, 1)
+        _, wallet_row, _ = client.get_row(wallets_table_name(), primary_key, cols, None, 1)
         device_count = 0
         if wallet_row:
             attrs = {c[0]: c[1] for c in wallet_row.attribute_columns}
@@ -154,11 +130,19 @@ def handler(environ, start_response):
             ("registered_at", registered_at),
         ]
         device_row = tablestore.Row(device_pk, device_attrs)
-        client.put_row("devices", device_row, tablestore.Condition(tablestore.RowExistenceExpectation.EXPECT_NOT_EXIST))
+        client.put_row(
+            device_table_name(),
+            device_row,
+            tablestore.Condition(tablestore.RowExistenceExpectation.EXPECT_NOT_EXIST),
+        )
 
         # Increment device count in wallets table
         inc_row = tablestore.Row(primary_key, {"INCREMENT": [("device_count", 1)]})
-        client.update_row("wallets", inc_row, tablestore.Condition(tablestore.RowExistenceExpectation.IGNORE))
+        client.update_row(
+            wallets_table_name(),
+            inc_row,
+            tablestore.Condition(tablestore.RowExistenceExpectation.IGNORE),
+        )
 
     except Exception as e:
         logger.error("Tablestore write failed: %s", e)
@@ -166,7 +150,7 @@ def handler(environ, start_response):
 
     # Upload pubkey to OSS
     try:
-        bucket = _get_oss_bucket()
+        bucket = create_oss_bucket(environ)
         bucket.put_object(f"{kid}.pub", body["public_key"].encode("utf-8"))
     except Exception as e:
         logger.warning("OSS pubkey upload failed (non-fatal): %s", e)

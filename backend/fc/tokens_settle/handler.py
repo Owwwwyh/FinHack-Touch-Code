@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from aws_lambda.settle_batch import handler as settle_batch_handler
 from fc.eb_cross_cloud_ingest import handler as ingest_handler
+from lib.alibaba_runtime import create_tablestore_client, pending_batches_table_name
 from lib import demo_state
 from lib.bridge_auth import sign_body
 from lib.jwt_middleware import JwtVerificationError, get_jwt_middleware
@@ -33,18 +34,7 @@ def _error(start_response, http_status: str, code: str, message: str, request_id
     return [json.dumps(body).encode("utf-8")]
 
 
-def _get_ots_client():
-    import tablestore
-
-    return tablestore.OTSClient(
-        os.environ["TABLESTORE_ENDPOINT"],
-        os.environ["OTS_ACCESS_KEY_ID"],
-        os.environ["OTS_ACCESS_KEY_SECRET"],
-        os.environ["TABLESTORE_INSTANCE"],
-    )
-
-
-def _record_pending_batch(batch_id: str, device_id: str, token_count: int) -> None:
+def _record_pending_batch(environ, batch_id: str, device_id: str, token_count: int) -> None:
     if not os.environ.get("TABLESTORE_ENDPOINT"):
         demo_state.record_pending_batch(
             batch_id,
@@ -56,7 +46,7 @@ def _record_pending_batch(batch_id: str, device_id: str, token_count: int) -> No
     try:
         import tablestore
 
-        client = _get_ots_client()
+        client = create_tablestore_client(environ)
         row = tablestore.Row(
             [("batch_id", batch_id)],
             [
@@ -67,7 +57,7 @@ def _record_pending_batch(batch_id: str, device_id: str, token_count: int) -> No
             ],
         )
         client.put_row(
-            "pending_batches",
+            pending_batches_table_name(),
             row,
             tablestore.Condition(tablestore.RowExistenceExpectation.IGNORE),
         )
@@ -173,7 +163,7 @@ def handler(environ, start_response):
             request_id,
         )
 
-    _record_pending_batch(batch_id, device_id, len(tokens))
+    _record_pending_batch(environ, batch_id, device_id, len(tokens))
     event = build_settlement_requested_event(
         batch_id=batch_id,
         device_id=device_id,

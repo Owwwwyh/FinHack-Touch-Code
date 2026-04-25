@@ -11,10 +11,10 @@ variable "model_bucket" {
 
 resource "terraform_data" "eas_contract" {
   input = {
-    service_name  = "tng-credit-score-refresh"
-    endpoint      = var.endpoint
-    model_bucket  = var.model_bucket
-    route         = "/score"
+    service_name = "tng-credit-score-refresh"
+    endpoint     = var.endpoint
+    model_bucket = var.model_bucket
+    route        = "/score"
   }
 }
 

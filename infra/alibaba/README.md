@@ -4,6 +4,12 @@ TNG Finhack Phase 2 Alibaba cloud resources for wallet API, offline payment sett
 
 **Documentation**: See [docs/06-alibaba-services.md](../../docs/06-alibaba-services.md) for detailed service architecture.
 
+**Current repo reality**: only `oss` and `tablestore` are real Terraform resources
+today. `fc`, `apigw`, and `eas` are still scaffold-only contracts, so a plain
+`terraform apply` from this folder does **not** deploy a live wallet API yet.
+Use [docs/15-alibaba-manual-deploy-runbook.md](../../docs/15-alibaba-manual-deploy-runbook.md)
+for the practical next-step sequence.
+
 ## Structure
 
 ```
@@ -49,7 +55,10 @@ infra/alibaba/
    account_id               = "your_alibaba_account_id"
    aws_cognito_jwks_uri     = "https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_XXXXXXXXX/.well-known/jwks.json"
    aws_account_id           = "123456789012"
-   aws_lambda_bridge_out_arn = "arn:aws:lambda:ap-southeast-1:123456789012:function:tng-finhack-eb-cross-cloud-bridge-out"
+   public_api_domain        = "api-finhack.example.com"
+   aws_bridge_url           = "https://YOUR_AWS_BRIDGE_URL"
+   aws_bridge_hmac_secret   = "REPLACE_WITH_SHARED_SECRET"
+   eas_endpoint             = ""
    EOF
    ```
 
@@ -60,11 +69,14 @@ infra/alibaba/
    terraform plan
    ```
 
-4. **Apply** (creates all resources):
+4. **Apply**:
 
    ```bash
    terraform apply
    ```
+
+   Today this creates Alibaba foundation resources plus scaffold outputs. It does not
+   yet create a live FC + API Gateway deployment.
 
 5. **Destroy** (cleans up all resources):
    ```bash
@@ -212,12 +224,11 @@ Key outputs:
 
 ## Next Steps
 
-1. **Deploy Function Compute** (`infra/alibaba/fc/`): Implement 11 wallet API functions
-2. **Deploy API Gateway** (`infra/alibaba/apigw/`): Public HTTPS endpoint with JWT auth
-3. **Deploy RDS** (`infra/alibaba/rds/`): Transaction history, KYC, merchants
-4. **Deploy PAI-EAS** (`infra/alibaba/eas/`): Credit score refresh service
-5. **Deploy EventBridge** (`infra/alibaba/eb/`): Cross-cloud event relay
-6. **Link to AWS** (Track B): Configure cross-cloud bridges B1, B2, B3
+1. Switch the root from `aliyun/alibabacloudstack` to the public-cloud `aliyun/alicloud` provider.
+2. Replace the scaffold FC/API Gateway/EAS modules with real resources.
+3. Align the FC handler env vars and Tablestore table contract with the Python code in `backend/fc`.
+4. Deploy the first live six-route slice, then feed the Alibaba ingest URL back into AWS.
+5. Use [docs/15-alibaba-manual-deploy-runbook.md](../../docs/15-alibaba-manual-deploy-runbook.md) as the operator checklist.
 
 ## Troubleshooting
 

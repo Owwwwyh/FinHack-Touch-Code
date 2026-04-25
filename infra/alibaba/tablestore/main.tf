@@ -3,23 +3,23 @@
 
 terraform {
   required_providers {
-    alibabacloudstack = {
-      source = "aliyun/alibabacloudstack"
+    alicloud = {
+      source = "aliyun/alicloud"
     }
   }
 }
 
 # Tablestore instance
-resource "alibabacloudstack_tablestore_instance" "tng" {
-  name              = "${local.project}-tablestore"
-  instance_type     = "HighPerformance"
-  tags              = merge(local.common_tags, { Name = "${local.project}-tablestore" })
-  timeouts          = { create = "10m" }
+resource "alicloud_ots_instance" "tng" {
+  name        = "tngfinhackots"
+  description = "${local.project} tablestore"
+  accessed_by = "Any"
+  tags        = merge(local.common_tags, { Name = "${local.project}-tablestore" })
 }
 
 # Users table: user profile and KYC tier
-resource "alibabacloudstack_tablestore_table" "users" {
-  instance_name = alibabacloudstack_tablestore_instance.tng.name
+resource "alicloud_ots_table" "users" {
+  instance_name = alicloud_ots_instance.tng.name
   table_name    = "${local.project}_users"
 
   primary_key {
@@ -29,14 +29,11 @@ resource "alibabacloudstack_tablestore_table" "users" {
 
   time_to_live = -1 # Infinite
   max_version  = 1
-
-  reserved_read_capacity_units  = 10
-  reserved_write_capacity_units = 10
 }
 
 # Devices table: public key directory and device attestation
-resource "alibabacloudstack_tablestore_table" "devices" {
-  instance_name = alibabacloudstack_tablestore_instance.tng.name
+resource "alicloud_ots_table" "devices" {
+  instance_name = alicloud_ots_instance.tng.name
   table_name    = "${local.project}_devices"
 
   primary_key {
@@ -46,14 +43,11 @@ resource "alibabacloudstack_tablestore_table" "devices" {
 
   time_to_live = -1
   max_version  = 1
-
-  reserved_read_capacity_units  = 10
-  reserved_write_capacity_units = 10
 }
 
 # Wallets table: user wallet balance and version
-resource "alibabacloudstack_tablestore_table" "wallets" {
-  instance_name = alibabacloudstack_tablestore_instance.tng.name
+resource "alicloud_ots_table" "wallets" {
+  instance_name = alicloud_ots_instance.tng.name
   table_name    = "${local.project}_wallets"
 
   primary_key {
@@ -63,14 +57,11 @@ resource "alibabacloudstack_tablestore_table" "wallets" {
 
   time_to_live = -1
   max_version  = 1
-
-  reserved_read_capacity_units  = 20
-  reserved_write_capacity_units = 20
 }
 
 # Offline balance cache: cached safe balance for offline transactions
-resource "alibabacloudstack_tablestore_table" "offline_balance_cache" {
-  instance_name = alibabacloudstack_tablestore_instance.tng.name
+resource "alicloud_ots_table" "offline_balance_cache" {
+  instance_name = alicloud_ots_instance.tng.name
   table_name    = "${local.project}_offline_balance_cache"
 
   primary_key {
@@ -85,14 +76,11 @@ resource "alibabacloudstack_tablestore_table" "offline_balance_cache" {
 
   time_to_live = 604800 # 7 days
   max_version  = 1
-
-  reserved_read_capacity_units  = 5
-  reserved_write_capacity_units = 5
 }
 
 # Pending tokens inbox: optimistic user-side view of received payment tokens
-resource "alibabacloudstack_tablestore_table" "pending_tokens_inbox" {
-  instance_name = alibabacloudstack_tablestore_instance.tng.name
+resource "alicloud_ots_table" "pending_tokens_inbox" {
+  instance_name = alicloud_ots_instance.tng.name
   table_name    = "${local.project}_pending_tokens_inbox"
 
   primary_key {
@@ -107,14 +95,11 @@ resource "alibabacloudstack_tablestore_table" "pending_tokens_inbox" {
 
   time_to_live = 2592000 # 30 days
   max_version  = 1
-
-  reserved_read_capacity_units  = 5
-  reserved_write_capacity_units = 5
 }
 
 # Policy versions table: tracks active credit score model versions
-resource "alibabacloudstack_tablestore_table" "policy_versions" {
-  instance_name = alibabacloudstack_tablestore_instance.tng.name
+resource "alicloud_ots_table" "policy_versions" {
+  instance_name = alicloud_ots_instance.tng.name
   table_name    = "${local.project}_policy_versions"
 
   primary_key {
@@ -124,9 +109,32 @@ resource "alibabacloudstack_tablestore_table" "policy_versions" {
 
   time_to_live = -1
   max_version  = 1
+}
 
-  reserved_read_capacity_units  = 5
-  reserved_write_capacity_units = 5
+resource "alicloud_ots_table" "pending_batches" {
+  instance_name = alicloud_ots_instance.tng.name
+  table_name    = "${local.project}_pending_batches"
+
+  primary_key {
+    name = "batch_id"
+    type = "String"
+  }
+
+  time_to_live = 2592000
+  max_version  = 1
+}
+
+resource "alicloud_ots_table" "score_policies" {
+  instance_name = alicloud_ots_instance.tng.name
+  table_name    = "${local.project}_score_policies"
+
+  primary_key {
+    name = "policy_version"
+    type = "String"
+  }
+
+  time_to_live = -1
+  max_version  = 1
 }
 
 # Variables
@@ -135,9 +143,14 @@ variable "account_id" {
   type        = string
 }
 
+variable "region" {
+  description = "Alibaba region"
+  type        = string
+}
+
 # Locals
 locals {
-  project = "tng-finhack"
+  project = "tng_finhack"
   common_tags = {
     Project = "tng-finhack"
     Env     = "demo"
@@ -146,29 +159,41 @@ locals {
 
 # Outputs
 output "tablestore_instance_name" {
-  value = alibabacloudstack_tablestore_instance.tng.name
+  value = alicloud_ots_instance.tng.name
 }
 
 output "users_table_name" {
-  value = alibabacloudstack_tablestore_table.users.table_name
+  value = alicloud_ots_table.users.table_name
 }
 
 output "devices_table_name" {
-  value = alibabacloudstack_tablestore_table.devices.table_name
+  value = alicloud_ots_table.devices.table_name
 }
 
 output "wallets_table_name" {
-  value = alibabacloudstack_tablestore_table.wallets.table_name
+  value = alicloud_ots_table.wallets.table_name
 }
 
 output "offline_balance_cache_table_name" {
-  value = alibabacloudstack_tablestore_table.offline_balance_cache.table_name
+  value = alicloud_ots_table.offline_balance_cache.table_name
 }
 
 output "pending_tokens_inbox_table_name" {
-  value = alibabacloudstack_tablestore_table.pending_tokens_inbox.table_name
+  value = alicloud_ots_table.pending_tokens_inbox.table_name
 }
 
 output "policy_versions_table_name" {
-  value = alibabacloudstack_tablestore_table.policy_versions.table_name
+  value = alicloud_ots_table.policy_versions.table_name
+}
+
+output "pending_batches_table_name" {
+  value = alicloud_ots_table.pending_batches.table_name
+}
+
+output "score_policies_table_name" {
+  value = alicloud_ots_table.score_policies.table_name
+}
+
+output "public_endpoint" {
+  value = "https://${alicloud_ots_instance.tng.name}.${var.region}.ots.aliyuncs.com"
 }
