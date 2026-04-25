@@ -19,7 +19,11 @@ going cashless?"* The answer is removing the connectivity precondition. Rural ar
 basements, transit, and event venues all break cashless flows today; this project
 keeps the wallet usable in those moments — the wedge for inclusion.
 
-## What we built
+## What we're building
+
+> **Status:** Designed and specified. Implementation is in progress per
+> [docs/12-build-tasks.md](docs/12-build-tasks.md). This README will flip to past
+> tense once the vertical-slice demo runs end-to-end.
 
 1. **Flutter Android app** with HCE-based NFC peer-to-peer transfer.
 2. **Ed25519-signed transaction tokens** (JWS) that prove offline payments to the server.

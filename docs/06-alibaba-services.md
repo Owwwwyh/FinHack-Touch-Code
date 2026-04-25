@@ -39,8 +39,9 @@ ROS / Terraform module root: `infra/alibaba/`.
   (CPU enough — model is XGBoost, no GPU needed; smaller `ecs.c6.large` actually fine).
 - **Container image:** built from `ml/eas/Dockerfile`, pushed to Alibaba Container
   Registry (ACR).
-- **Model storage:** Alibaba OSS path `oss://tng-finhack-models/credit/v{n}/model.pkl`.
-  Container fetches at warmup.
+- **Model storage:** Alibaba OSS path `oss://tng-finhack-models/credit/v{n}/model.pkl`
+  is the **sole runtime source**. Container fetches at warmup; AWS S3 is publish-time
+  origin only (not read by EAS at inference). See [docs/04-credit-score-ml.md §9](04-credit-score-ml.md).
 - **Endpoint authentication:** EAS token-based; FC stores token in KMS-wrapped form.
 
 ### 2.2 Request shape
@@ -51,10 +52,11 @@ responses are deterministic given inputs.
 - Mobile timeout 800ms; on timeout, fall back to on-device TF Lite estimate.
 - EAS warm-up cron via FC every 4 minutes during the hackathon demo window.
 
-### 2.4 Cross-cloud model fetch (boundary B4)
-EAS instance role has read access to AWS S3 `models/credit/*` via embedded AK/SK
-fetched from Alibaba Secrets/KMS. Pulled once per model version at warm-up; cached
-locally in container.
+### 2.4 Model source (single authoritative path)
+EAS reads models exclusively from **Alibaba OSS**. Cross-cloud transfer happens
+at *publish* time via boundary call B1 (AWS S3 → OSS) in the Step Functions
+release pipeline. There is no runtime cross-cloud fetch from EAS — this avoids
+warm-up latency variance and a second cross-cloud credential surface.
 
 ## 3. OSS
 
@@ -86,7 +88,7 @@ Service: `tng-wallet-api`. Functions wired to API Gateway.
 | `merchants-onboard` | `POST /merchants/onboard` | Stub |
 | `eb-cross-cloud-ingest` | webhook (HTTPS) | Receive AWS settlement-result events |
 
-All functions require Cognito-issued JWT (boundary B5: JWKS fetched from AWS).
+All functions require Cognito-issued JWT (boundary B4: JWKS fetched from AWS).
 
 ### 4.1 Concurrency / instance limits
 - `tokens-settle` reserved 10 concurrency for the demo.
@@ -127,7 +129,7 @@ CapacityUnits: reserved capacity 200 R/W for demo; autoscale otherwise.
 - **Database:** `tng_history`.
 - **Tables:** `settled_transactions`, `merchants`, `kyc_records`, `disputes`.
 - See [docs/09-data-model.md](09-data-model.md) for DDL.
-- Read-replica for analytics + cross-cloud read by AWS Lambda fraud-score (boundary B6,
+- Read-replica for analytics + cross-cloud read by AWS Lambda fraud-score (boundary B5,
   via VPN tunnel).
 - Backup: daily, 7-day retention.
 
@@ -229,6 +231,6 @@ infra/alibaba/
 
 - AWS↔Alibaba mostly over the public internet with TLS 1.3 + mTLS for the bridge
   webhooks.
-- For the Lambda↔RDS read (boundary B6), a Site-to-Site VPN between AWS VPC and
+- For the Lambda↔RDS read (boundary B5), a Site-to-Site VPN between AWS VPC and
   Alibaba VPC. For the demo, a simpler approach: read-replica fronted by an FC API
   with strict IP allowlist of AWS NAT gateway IPs.

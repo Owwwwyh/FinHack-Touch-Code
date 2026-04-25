@@ -45,9 +45,11 @@ Terraform module root: `infra/aws/`.
 - Output: `s3://tng-finhack-aws/models/credit/v{n}/model.tar.gz`
 - Metrics: emitted to CloudWatch namespace `TNG/Credit`.
 
-### 2.3 Inference role for cross-cloud (PAI-EAS)
-- A scoped IAM user with read access to `models/credit/*` only — credentials handed to
-  Alibaba PAI-EAS so it can pull at cold-start (boundary call B4).
+### 2.3 Model handoff to Alibaba
+- Models published in SageMaker registry are copied to Alibaba OSS by the
+  `model-publish-bridge` Lambda (boundary B1). PAI-EAS reads from OSS only — there
+  is no AWS-side IAM credential issued to EAS at runtime. See
+  [docs/04-credit-score-ml.md §9](04-credit-score-ml.md), [docs/06-alibaba-services.md §2.4](06-alibaba-services.md).
 
 ## 3. S3
 
@@ -118,7 +120,7 @@ All on-demand billing. Point-in-time recovery on `token_ledger`.
 - **App client:** `tng-mobile`, OAuth2 with PKCE, refresh-token sliding 30d.
 - **Identity Pool:** federates JWT to optional temporary AWS creds (only used by
   internal admin tools, not the mobile app).
-- JWKS URL: published; Alibaba FC consumes for token verify (boundary B5).
+- JWKS URL: published; Alibaba FC consumes for token verify (boundary B4).
 - KYC stub: pre-signup Lambda issues tier 1 by default; tier 2 requires later upgrade.
 
 ## 7. KMS

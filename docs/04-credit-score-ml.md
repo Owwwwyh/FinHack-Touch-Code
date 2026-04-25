@@ -165,7 +165,11 @@ state.safeOfflineBalance = safeBalance.clamp(0, cachedBalance);
 Container at `ml/eas/Dockerfile`:
 - Flask + xgboost + numpy.
 - Loads the *original* XGBoost model (not the TF Lite one — better accuracy and we have
-  network) from a baked-in copy that's refreshed on each redeploy.
+  network) from **Alibaba OSS** at `oss://tng-finhack-models/credit/v{n}/model.pkl`.
+  OSS is the **single authoritative runtime source** for EAS; the AWS S3 path
+  (`s3://tng-finhack-aws-models/...`) is the *origin* during publish but never read
+  at inference time — it's mirrored to OSS by the publish pipeline (boundary B1).
+  EAS fetches once at warmup and caches in-container.
 - `POST /score`:
   ```json
   { "user_id": "u_8412",

@@ -179,9 +179,13 @@ These are the *purposeful* cross-cloud interactions. Each row is justified, not 
 | B1 | AWS S3 (model artifact) → Alibaba OSS | New model version published in SageMaker registry | `model.tflite`, `model.json` (sigstore signature), `score_card.json` | Training is on AWS; mobile/edge distribution is on Alibaba. Cross-cloud copy keeps origin authoritative. |
 | B2 | Alibaba EventBridge → AWS EventBridge | New settlement batch ready (mobile uploaded tokens) | `{deviceId, batchId, tokenCount, sha256}` | Wallet API runs on Alibaba (APAC) but the ledger is on AWS. Async event hands off. |
 | B3 | AWS Lambda (settle) → Alibaba EventBridge | Settlement complete | `{txId, status, settledAt}` | Lets Alibaba update wallet balance + push notify the user. |
-| B4 | Alibaba PAI-EAS → AWS S3 | Cold-start model load | Read `s3://.../models/credit/v{n}/model.pkl` | EAS pulls from authoritative S3 origin (mirrored in OSS for hot path). |
-| B5 | Alibaba FC → AWS Cognito | JWT verification (JWKS) | Public JWKS fetch | Auth federated; FC validates Cognito-issued JWT. |
-| B6 | AWS Lambda (fraud-score) → Alibaba RDS (read replica via VPN) | Look up KYC tier | `userId` | Settlement may need user-tier check before approving. |
+| B4 | Alibaba FC → AWS Cognito | JWT verification (JWKS) | Public JWKS fetch | Auth federated; FC validates Cognito-issued JWT. |
+| B5 | AWS Lambda (fraud-score) → Alibaba RDS (read replica via VPN) | Look up KYC tier | `userId` | Settlement may need user-tier check before approving. |
+
+> **Note on model source:** PAI-EAS loads models exclusively from Alibaba OSS at
+> warm-up. The cross-cloud transfer is captured by **B1** (publish path) — there
+> is no separate runtime fetch from AWS S3. See [docs/04 §9](04-credit-score-ml.md),
+> [docs/06 §2.4](06-alibaba-services.md).
 
 All boundary calls are JSON over HTTPS. B2/B3 use a thin proxy Lambda + Alibaba FC handler since native EventBridge cross-cloud routing is not first-class — see [docs/05-aws-services.md](05-aws-services.md) §EventBridge bridge.
 

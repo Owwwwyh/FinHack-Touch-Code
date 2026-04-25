@@ -124,15 +124,24 @@ platform channel that delegates the actual private-key operations to Keystore.
 ## 5. NFC APDU exchange
 
 ### 5.1 Application IDs
-- Sender HCE service AID: `F0 54 4E 47 50 41 59` (`F0` + "TNGPAY")
-- Receiver HCE service AID: same — apps switch role by user-selected screen
+
+**Canonical AID** (single source of truth — every component must use this exact value):
+
+```
+AID = F0544E47504159   (7 bytes; "F0" + ASCII "TNGPAY")
+```
+
+- Sender (reader mode) sends `SELECT` with this AID.
+- Receiver HCE service registers with this AID in `apduservice.xml` (see
+  [docs/07-mobile-app.md §4](07-mobile-app.md)).
+- Apps switch role by which screen the user opens (Pay vs Receive); the AID is the same.
 
 ### 5.2 Sequence (sender → receiver)
 
 ```
                 Sender                           Receiver (HCE)
                   │                                    │
-                  │ ─── SELECT AID F0544E4750 ──────>  │
+                  │ ─── SELECT AID F0544E47504159 ──>  │
                   │ <─── 9000 + receiver_pub (32B) ── │
                   │                                    │
                   │ ─── PUT-DATA chunk 0/N (256B) ──> │
@@ -148,7 +157,7 @@ platform channel that delegates the actual private-key operations to Keystore.
 
 | APDU | C-APDU | R-APDU |
 |---|---|---|
-| Select AID | `00 A4 04 00 07 F0544E4750 41 59 00` | `<32B receiver_pub> 90 00` |
+| Select AID | `00 A4 04 00 07 F0544E47504159 00` (Lc=07, AID=7 bytes) | `<32B receiver_pub> 90 00` |
 | Put-Data chunk | `80 D0 <p1> <p2> <Lc> <data...>` where p1=chunk index, p2=total | `90 00` (more) / `90 01` (last received) |
 | Get Ack | `80 C0 00 00 40` | `<64B ack-sig> 90 00` |
 

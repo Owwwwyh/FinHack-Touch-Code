@@ -43,7 +43,7 @@ Instance: `tng-finhack-ots`. CapacityMode: reserved for demo (200 R/W).
 | `device_id` (kid) | STRING | PK | UUIDv7 |
 | `user_id` | STRING | | indexed |
 | `pub_key_b64` | STRING | | Ed25519 32-byte raw, base64url |
-| `alg` | STRING | | `EdDSA`/`ES256` |
+| `alg` | STRING | | `EdDSA` |
 | `attestation_sha256` | STRING | | sha256 of cert chain |
 | `status` | STRING | | `ACTIVE`/`REVOKED`/`PENDING` |
 | `registered_at` | INTEGER | | |
@@ -279,8 +279,15 @@ static/
 | Logs | both clouds | 14d hot, 90d cold |
 | Disputes | Alibaba RDS | 7y |
 
-PII never leaves Alibaba's APAC residency. AWS sees only `user_id` + transaction
-amounts + crypto blobs (no PII directly).
+**Residency posture (precise):** Direct PII (legal name, phone E.164, IC last-4,
+KYC document references) is stored only in Alibaba KL (RDS + Tablestore). AWS
+stores **pseudonymous identifiers** (opaque `user_id`, `kid`), transaction amounts,
+optional best-effort `geo` coordinates carried inside signed JWS tokens, and
+`policy_signed_balance`. Under most regulatory definitions `geo` is considered
+indirect PII; treat the AWS surface as **pseudonymous-minimal** rather than
+PII-free. Future hardening (post-MVP): strip `geo` from the persisted JWS in the
+ledger and store only its hash, retaining the full token only in an encrypted
+WORM bucket for audit.
 
 ## 7. Migrations / DDL changes
 

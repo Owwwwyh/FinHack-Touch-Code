@@ -45,7 +45,7 @@ last-updated: 2026-04-25
 | T-09 | Model tampering (OTA poisoning) | **T**ampering | Sigstore-signed model.tflite; mobile verifies signature against bundled root before swap. | [docs/04-credit-score-ml.md §10](04-credit-score-ml.md) |
 | T-10 | Malicious merchant accepts then disputes everything | **R** | Dispute rate per merchant → flagged via fraud-score Lambda; KYC tier locked till review. | [docs/05-aws-services.md §4](05-aws-services.md) |
 | T-11 | DOS on wallet API | **D**oS | API Gateway rate limit + per-user throttle; FC autoscale; ledger is on-demand DynamoDB | [docs/06-alibaba-services.md §5](06-alibaba-services.md) |
-| T-12 | Information disclosure of PII | **I** | PII stays in APAC (Alibaba); AWS sees only crypto blobs + amounts. KMS-encrypted at rest. | [docs/09-data-model.md §6](09-data-model.md) |
+| T-12 | Information disclosure of PII | **I** | Direct PII (name, phone, IC) stays in APAC (Alibaba). AWS holds pseudonymous IDs, amounts, and signed JWS (which include best-effort `geo` — treated as indirect PII). KMS-encrypted at rest both sides. See [docs/09-data-model.md §6](09-data-model.md) for precise residency posture. | [docs/09-data-model.md §6](09-data-model.md) |
 | T-13 | Lost phone with offline-signed tokens not yet settled | **R** | Receiver still settles using sender's signed token; sender can't repudiate. User can revoke key, but pre-revocation tokens settle. | [docs/03-token-protocol.md §4](03-token-protocol.md) |
 | T-14 | Token forgery via weak RNG | **T** | Use platform CSPRNG (`SecureRandom`) for nonce; Ed25519 deterministic so no nonce reuse on signing side. | [docs/03-token-protocol.md §3.2](03-token-protocol.md) |
 | T-15 | Cross-cloud webhook abuse | **S** | mTLS + HMAC-signed payload + IP allowlist + replay protection (timestamp + signed nonce). | [docs/05-aws-services.md §8](05-aws-services.md), [docs/06-alibaba-services.md §10](06-alibaba-services.md) |
@@ -107,10 +107,12 @@ applicability.
 
 ## 7. Data residency
 
-- All PII (`users`, `kyc_records`, `disputes`, `merchants`) stored in Alibaba
-  ap-southeast-3 (KL).
-- Token ledger on AWS sees no PII directly — only `user_id` (random opaque IDs),
-  `kid`, amounts, signed blobs.
+- Direct PII (`users`, `kyc_records`, `disputes`, `merchants`) stored in Alibaba
+  ap-southeast-3 (KL) only.
+- Token ledger on AWS holds: pseudonymous `user_id`, `kid`, amounts, signed JWS
+  blobs. JWS payloads contain optional `geo` (lat/lon) and `policy_signed_balance`
+  — these are indirect PII; the AWS surface is **pseudonymous-minimal**, not
+  PII-free.
 - Cross-cloud events carry `user_id` opaque IDs only; never names, phones, IC numbers.
 - Logs scrubbed of PII before shipping (FC log filter; Lambda log filter on AWS).
 

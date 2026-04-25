@@ -146,7 +146,7 @@ dev_dependencies:
     android:description="@string/tng_aid_label"
     android:requireDeviceUnlock="false">
     <aid-group android:description="@string/tng_aid_group" android:category="other">
-        <aid-filter android:name="F0544E4750"/>
+        <aid-filter android:name="F0544E47504159"/>  <!-- canonical AID, see docs/03-token-protocol.md §5.1 -->
     </aid-group>
 </host-apdu-service>
 ```
@@ -186,7 +186,7 @@ fun ensureKey(): String {
   val spec = KeyGenParameterSpec.Builder(
         ALIAS,
         KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY)
-    .setAlgorithmParameterSpec(ECGenParameterSpec("ed25519")) // API 33+
+    .setAlgorithmParameterSpec(ECGenParameterSpec("ed25519")) // API 33+ required
     .setDigests(KeyProperties.DIGEST_NONE)
     .setUserAuthenticationRequired(true)
     .setIsStrongBoxBacked(supportsStrongBox(context))
@@ -208,9 +208,9 @@ fun sign(data: ByteArray): ByteArray {
 }
 ```
 
-> **Note:** Android Keystore Ed25519 support: API 33+. Pre-33 fallback uses
-> P-256 ECDSA with the same envelope; this is documented in the threat model
-> as a tier-2 device requirement. For the demo, target Pixel devices on Android 14+.
+> **Note:** Android Keystore Ed25519 support: API 33+. v1 is **EdDSA-only** —
+> pre-API-33 devices are not supported in v1 (fail-closed at onboarding). For
+> the demo, target Pixel devices on Android 14+.
 
 Flutter side `native_keystore.dart` exposes:
 - `Future<String> ensureKey()` → returns `kid`.
@@ -339,9 +339,10 @@ See [docs/11-demo-and-test-plan.md](11-demo-and-test-plan.md).
 
 ## 13. Known constraints
 
-- Android Keystore Ed25519: API 33+. Older devices fall back to ECDSA P-256 — server
-  must accept both `EdDSA` and `ES256` algs in JWS header (decision: support both for
-  device coverage; mark in [docs/03-token-protocol.md](03-token-protocol.md) v1.1).
+- Android Keystore Ed25519: API 33+. **Demo decision:** EdDSA-only; older devices are
+  out-of-scope for v1 and the app refuses onboarding on API < 33 (clear "device not
+  supported" page). Pre-API-33 device coverage is a v1.1 work item — would require
+  introducing ES256 support across protocol, server verifier, and test vectors.
 - HCE on Android requires NFC chip + lockscreen unlocked OR `requireDeviceUnlock=false`
   in service config (we set false to enable taps from lock screen for hawker speed).
 - Cannot run two HCE services with the same AID; uninstall any prior TNG dev build
