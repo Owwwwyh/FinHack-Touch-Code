@@ -1,0 +1,29 @@
+name: Build Mobile APK
+on:
+  push:
+    branches: [main, ow]
+    paths: ['mobile/**']
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.x'
+          channel: stable
+      - name: Install dependencies
+        run: cd mobile && flutter pub get
+      - name: Build runner
+        run: cd mobile && dart run build_runner build --delete-conflicting-outputs
+        continue-on-error: true
+      - name: Analyze
+        run: cd mobile && flutter analyze
+        continue-on-error: true
+      - name: Build APK
+        run: cd mobile && flutter build apk --debug
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: mobile/build/app/outputs/flutter-apk/*.apk

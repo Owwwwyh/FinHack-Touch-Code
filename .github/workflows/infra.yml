@@ -1,0 +1,16 @@
+name: Infrastructure CI
+on:
+  pull_request:
+    paths: ['infra/**']
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform Init
+        run: cd infra/aws && terraform init -backend=false
+      - name: Terraform Format
+        run: cd infra/aws && terraform fmt -check -recursive
+      - name: Terraform Validate
+        run: cd infra/aws && terraform validate

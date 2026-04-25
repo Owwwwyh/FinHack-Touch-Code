@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  localstack:
+    image: localstack/localstack:3
+    container_name: tng-localstack
+    environment:
+      SERVICES: dynamodb,s3,kms,events,lambda
+      DEFAULT_REGION: ap-southeast-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+    ports:
+      - "4566:4566"
+    volumes:
+      - localstack_data:/var/lib/localstack
+
+  fc-shim:
+    build: ./backend/fc-shim
+    container_name: tng-fc-shim
+    ports:
+      - "3000:3000"
+    environment:
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: ap-southeast-1
+      ALIBABA_OTS_ENDPOINT: ${ALIBABA_OTS_ENDPOINT:-}
+      ALIBABA_OTS_INSTANCE: tng-finhack-dev
+      COGNITO_JWKS_URL: ${COGNITO_JWKS_URL:-}
+      PORT: 3000
+    depends_on:
+      - localstack
+
+volumes:
+  localstack_data:

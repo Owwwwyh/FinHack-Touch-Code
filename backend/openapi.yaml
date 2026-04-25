@@ -1,0 +1,448 @@
+openapi: 3.0.3
+info:
+  title: TNG OfflinePay API
+  description: Backend API for TNG offline NFC payment wallet
+  version: "1.0.0"
+  contact:
+    name: TNG FinHack Team
+
+servers:
+  - url: https://api-finhack.example.com/v1
+    description: Demo
+
+security:
+  - BearerAuth: []
+
+paths:
+  /devices/register:
+    post:
+      summary: Register device public key + attestation
+      operationId: deviceRegister
+      tags: [Devices]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceRegisterRequest'
+      responses:
+        '200':
+          description: Device registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceRegisterResponse'
+        '422':
+          $ref: '#/components/responses/AttestationInvalid'
+        '409':
+          $ref: '#/components/responses/DeviceLimitReached'
+
+  /devices/attest:
+    post:
+      summary: Refresh device attestation
+      operationId: deviceAttest
+      tags: [Devices]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceAttestRequest'
+      responses:
+        '200':
+          description: Attestation updated
+
+  /wallet/balance:
+    get:
+      summary: Get authoritative wallet balance
+      operationId: walletBalance
+      tags: [Wallet]
+      responses:
+        '200':
+          description: Balance info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletBalanceResponse'
+
+  /wallet/sync:
+    post:
+      summary: Apply queued reloads and return latest balance
+      operationId: walletSync
+      tags: [Wallet]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletSyncRequest'
+      responses:
+        '200':
+          description: Synced balance
+
+  /tokens/settle:
+    post:
+      summary: Submit batch of signed JWS tokens for settlement
+      operationId: tokensSettle
+      tags: [Tokens]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettleBatchRequest'
+      responses:
+        '200':
+          description: Settled or rejected per-token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettleBatchResponse'
+        '202':
+          description: Accepted — poll for results
+
+  /tokens/dispute:
+    post:
+      summary: Open dispute on a settled token
+      operationId: tokensDispute
+      tags: [Tokens]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisputeRequest'
+      responses:
+        '201':
+          description: Dispute received
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisputeResponse'
+
+  /score/refresh:
+    post:
+      summary: Get fresh safe-offline-balance from PAI-EAS
+      operationId: scoreRefresh
+      tags: [Score]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScoreRefreshRequest'
+      responses:
+        '200':
+          description: Score computed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoreRefreshResponse'
+
+  /score/policy:
+    get:
+      summary: Latest active policy + signed model URL
+      operationId: scorePolicy
+      tags: [Score]
+      responses:
+        '200':
+          description: Policy info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScorePolicyResponse'
+
+  /publickeys/{kid}:
+    get:
+      summary: Resolve a device's public key
+      operationId: publickeysGet
+      tags: [PublicKeys]
+      parameters:
+        - name: kid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Public key info
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /merchants/onboard:
+    post:
+      summary: Stub merchant onboarding
+      operationId: merchantsOnboard
+      tags: [Merchants]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                merchant_name:
+                  type: string
+                business_id:
+                  type: string
+                contact:
+                  type: string
+      responses:
+        '200':
+          description: Merchant ID returned
+
+  /_internal/eb/aws-bridge:
+    post:
+      summary: Internal cross-cloud webhook from AWS
+      operationId: ebAwsBridge
+      tags: [Internal]
+      security:
+        - mTLSAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Event received
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    mTLSAuth:
+      type: mutualTLS
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    DeviceRegisterRequest:
+      type: object
+      required: [user_id, public_key, attestation_chain, alg]
+      properties:
+        user_id:
+          type: string
+        device_label:
+          type: string
+        public_key:
+          type: string
+        attestation_chain:
+          type: array
+          items:
+            type: string
+        alg:
+          type: string
+          enum: [EdDSA]
+        android_id_hash:
+          type: string
+
+    DeviceRegisterResponse:
+      type: object
+      properties:
+        device_id:
+          type: string
+        kid:
+          type: string
+        policy_version:
+          type: string
+        initial_safe_offline_balance_myr:
+          type: string
+        registered_at:
+          type: string
+          format: date-time
+
+    DeviceAttestRequest:
+      type: object
+      required: [public_key, attestation_chain]
+      properties:
+        public_key:
+          type: string
+        attestation_chain:
+          type: array
+          items:
+            type: string
+
+    WalletBalanceResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+        balance_myr:
+          type: string
+        currency:
+          type: string
+        version:
+          type: integer
+        as_of:
+          type: string
+          format: date-time
+        safe_offline_balance_myr:
+          type: string
+        policy_version:
+          type: string
+
+    WalletSyncRequest:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+        since_version:
+          type: integer
+
+    SettleBatchRequest:
+      type: object
+      required: [device_id, batch_id, tokens]
+      properties:
+        device_id:
+          type: string
+        batch_id:
+          type: string
+        tokens:
+          type: array
+          items:
+            type: string
+          maxItems: 50
+
+    SettleBatchResponse:
+      type: object
+      properties:
+        batch_id:
+          type: string
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              tx_id:
+                type: string
+              status:
+                type: string
+                enum: [SETTLED, REJECTED]
+              reason:
+                type: string
+              settled_at:
+                type: string
+                format: date-time
+
+    DisputeRequest:
+      type: object
+      required: [tx_id, reason_code]
+      properties:
+        tx_id:
+          type: string
+        reason_code:
+          type: string
+          enum: [UNAUTHORIZED, WRONG_AMOUNT, NOT_RECEIVED, OTHER]
+        details:
+          type: string
+
+    DisputeResponse:
+      type: object
+      properties:
+        dispute_id:
+          type: string
+        status:
+          type: string
+
+    ScoreRefreshRequest:
+      type: object
+      required: [user_id, features]
+      properties:
+        user_id:
+          type: string
+        policy_version:
+          type: string
+        features:
+          type: object
+
+    ScoreRefreshResponse:
+      type: object
+      properties:
+        safe_offline_balance_myr:
+          type: string
+        confidence:
+          type: number
+        policy_version:
+          type: string
+        computed_at:
+          type: string
+          format: date-time
+
+    ScorePolicyResponse:
+      type: object
+      properties:
+        policy_version:
+          type: string
+        released_at:
+          type: string
+          format: date-time
+        model:
+          type: object
+          properties:
+            format:
+              type: string
+            url:
+              type: string
+            sha256:
+              type: string
+            sigstore_signature:
+              type: string
+        limits:
+          type: object
+          properties:
+            hard_cap_per_tier:
+              type: object
+              additionalProperties:
+                type: string
+            global_cap_per_token_myr:
+              type: string
+            max_token_validity_hours:
+              type: integer
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            request_id:
+              type: string
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unauthenticated:
+      description: Missing or invalid JWT
+    NotFound:
+      description: Resource not found
+    AttestationInvalid:
+      description: Attestation verification failed
+    DeviceLimitReached:
+      description: Max 3 devices per user
+    RateLimited:
+      description: Too many requests
