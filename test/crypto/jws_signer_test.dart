@@ -1,37 +1,23 @@
 import 'dart:typed_data';
 
+import 'package:cryptography/cryptography.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tng_clone_flutter/core/crypto/jws_signer.dart';
 
 void main() {
   group('JwsSigner', () {
-    // Test Ed25519 key pair (32-byte public + private)
-    // Public key (hex): e6fa8e6e7f9f8b7d5c3a1b9d7f5e3c1a9b7d5c3a1b9d7f5e3c1a9b7d5c3a1b
-    // Private key (hex): 3d45fc87a2d6b4c8e1f0a5d3b9e2c1f8a7b6d5c4e3f2a1b0c9d8e7f6a5b4c3
     late JwsSigner signer;
     late String kid;
     late String policy;
 
-    setUp(() {
-      // Create deterministic test keys
-      final publicKeyHex =
-          'e6fa8e6e7f9f8b7d5c3a1b9d7f5e3c1a9b7d5c3a1b9d7f5e3c1a9b7d5c3a1b';
-      final privateKeyHex =
-          '3d45fc87a2d6b4c8e1f0a5d3b9e2c1f8a7b6d5c4e3f2a1b0c9d8e7f6a5b4c3';
-
-      final publicKeyBytes = Uint8List.fromList(
-        List<int>.generate(32, (i) {
-          final hex = publicKeyHex.substring(i * 2, i * 2 + 2);
-          return int.parse(hex, radix: 16);
-        }),
-      );
-
-      final privateKeyBytes = Uint8List.fromList(
-        List<int>.generate(32, (i) {
-          final hex = privateKeyHex.substring(i * 2, i * 2 + 2);
-          return int.parse(hex, radix: 16);
-        }),
-      );
+    setUp(() async {
+      // Generate a real Ed25519 keypair so sign+verify roundtrips work.
+      final ed25519 = Ed25519();
+      final keyPair = await ed25519.newKeyPair();
+      final keyPairData = await keyPair.extract();
+      final publicKey = await keyPairData.extractPublicKey();
+      final privateKeyBytes = Uint8List.fromList(keyPairData.bytes);
+      final publicKeyBytes = Uint8List.fromList(publicKey.bytes);
 
       kid = 'did:tng:device:01HW3YKQ8X2A5FR7JM6T1EE9NP';
       policy = 'v3.2026-04-22';
@@ -45,6 +31,8 @@ void main() {
     });
 
     test('roundtrip: sign and verify returns same payload', () async {
+      final iat = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final exp = iat + 72 * 3600;
       final payload = {
         'tx_id': '01HW3YKQ8X2A5FR7JM6T1EE9NP',
         'sender': {
@@ -59,8 +47,8 @@ void main() {
         },
         'amount': {'value': '8.50', 'currency': 'MYR', 'scale': 2},
         'nonce': 'BASE64URL(16 bytes)',
-        'iat': 1745603421,
-        'exp': 1745862621,
+        'iat': iat,
+        'exp': exp,
         'policy_signed_balance': '120.00'
       };
 
@@ -79,6 +67,8 @@ void main() {
     });
 
     test('verify rejects tampered signature', () async {
+      final iat = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final exp = iat + 72 * 3600;
       final payload = {
         'tx_id': '01HW3YKQ8X2A5FR7JM6T1EE9NP',
         'sender': {'kid': kid, 'user_id': 'u_8412', 'pub': 'test'},
@@ -89,8 +79,8 @@ void main() {
         },
         'amount': {'value': '8.50', 'currency': 'MYR', 'scale': 2},
         'nonce': 'random_nonce',
-        'iat': 1745603421,
-        'exp': 1745862621,
+        'iat': iat,
+        'exp': exp,
         'policy_signed_balance': '120.00'
       };
 

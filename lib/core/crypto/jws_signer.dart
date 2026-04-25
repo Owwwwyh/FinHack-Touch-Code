@@ -13,16 +13,10 @@ class JwsSigner {
   static const String _version = '1';
 
   final SimplePublicKey _publicKey;
-  final SimplePrivateKey _privateKey;
+  final List<int> _privateKeyBytes;
   final String _kid;
   final String _policy;
 
-  /// Creates a JWS signer with a private key
-  ///
-  /// [privateKeyBytes]: 32-byte Ed25519 private key
-  /// [publicKeyBytes]: 32-byte Ed25519 public key (for verification)
-  /// [kid]: Key ID, typically a device identifier (UUIDv7)
-  /// [policy]: Policy version string (e.g., "v3.2026-04-22")
   JwsSigner({
     required Uint8List privateKeyBytes,
     required Uint8List publicKeyBytes,
@@ -30,8 +24,8 @@ class JwsSigner {
     required String policy,
   })  : _kid = kid,
         _policy = policy,
-        _privateKey = SimplePrivateKey(privateKeyBytes),
-        _publicKey = SimplePublicKey(publicKeyBytes);
+        _privateKeyBytes = privateKeyBytes,
+        _publicKey = SimplePublicKey(publicKeyBytes, type: KeyPairType.ed25519);
 
   /// Signs a payload and returns a compact JWS string
   ///
@@ -62,7 +56,7 @@ class JwsSigner {
     final signature = await ed25519.sign(
       utf8.encode(message),
       keyPair: SimpleKeyPairData(
-        _privateKey.bytes,
+        _privateKeyBytes,
         publicKey: _publicKey,
         type: KeyPairType.ed25519,
       ),

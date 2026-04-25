@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'connectivity_policy.dart';
@@ -12,16 +13,19 @@ class ConnectivityService extends StateNotifier<ConnectivityViewState> {
     ConnectivityPolicy policy = const ConnectivityPolicy(),
     Now? now,
     Duration heartbeat = const Duration(minutes: 1),
+    Stream<List<ConnectivityResult>>? networkStream,
   }) : this._internal(
           policy: policy,
           now: now ?? DateTime.now,
           heartbeat: heartbeat,
+          networkStream: networkStream,
         );
 
   ConnectivityService._internal({
     required ConnectivityPolicy policy,
     required Now now,
     required Duration heartbeat,
+    Stream<List<ConnectivityResult>>? networkStream,
   })  : _policy = policy,
         _now = now,
         _heartbeat = heartbeat,
@@ -36,6 +40,11 @@ class ConnectivityService extends StateNotifier<ConnectivityViewState> {
         ) {
     _recompute();
     _ticker = Timer.periodic(_heartbeat, (_) => _recompute());
+    if (networkStream != null) {
+      _networkSubscription = networkStream.listen((results) {
+        setNetworkAvailable(!results.contains(ConnectivityResult.none));
+      });
+    }
   }
 
   final ConnectivityPolicy _policy;
@@ -43,6 +52,7 @@ class ConnectivityService extends StateNotifier<ConnectivityViewState> {
   final Duration _heartbeat;
 
   Timer? _ticker;
+  StreamSubscription<List<ConnectivityResult>>? _networkSubscription;
   DateTime? _lastSyncedAt;
   int _consecutiveSyncFailures = 0;
   bool _hasNetwork = true;
@@ -86,6 +96,7 @@ class ConnectivityService extends StateNotifier<ConnectivityViewState> {
   @override
   void dispose() {
     _ticker?.cancel();
+    _networkSubscription?.cancel();
     super.dispose();
   }
 }
