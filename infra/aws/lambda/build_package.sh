@@ -7,6 +7,10 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 OUTPUT_ZIP="${1:-${SCRIPT_DIR}/dist/aws_lambda_bundle.zip}"
 STAGE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tng-aws-lambda.XXXXXX")"
 
+if [[ "${OUTPUT_ZIP}" != /* ]]; then
+  OUTPUT_ZIP="$(pwd)/${OUTPUT_ZIP}"
+fi
+
 cleanup() {
   rm -rf "${STAGE_DIR}"
 }

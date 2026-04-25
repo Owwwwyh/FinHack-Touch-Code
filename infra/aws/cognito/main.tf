@@ -11,7 +11,12 @@ terraform {
 
 # Cognito User Pool
 resource "aws_cognito_user_pool" "tng" {
-  name = "${local.project}-users"
+  name                     = "${local.project}-users"
+  auto_verified_attributes = ["email"]
+
+  lifecycle {
+    ignore_changes = [schema]
+  }
 
   password_policy {
     minimum_length    = 8
@@ -50,8 +55,8 @@ resource "aws_cognito_user_pool" "tng" {
 
   account_recovery_setting {
     recovery_mechanism {
-      name       = "verified_email"
-      priority   = 1
+      name     = "verified_email"
+      priority = 1
     }
   }
 
@@ -79,12 +84,12 @@ resource "aws_cognito_resource_server" "tng_api" {
 
 # App client for mobile (OAuth2 with PKCE)
 resource "aws_cognito_user_pool_client" "mobile" {
-  name                                = "${local.project}-mobile"
-  user_pool_id                        = aws_cognito_user_pool.tng.id
-  generate_secret                     = false # PKCE doesn't require secret
-  refresh_token_validity              = 30    # 30 days
-  access_token_validity               = 1     # 1 hour
-  id_token_validity                   = 1     # 1 hour
+  name                   = "${local.project}-mobile"
+  user_pool_id           = aws_cognito_user_pool.tng.id
+  generate_secret        = false # PKCE doesn't require secret
+  refresh_token_validity = 30    # 30 days
+  access_token_validity  = 1     # 1 hour
+  id_token_validity      = 1     # 1 hour
   token_validity_units {
     access_token  = "hours"
     id_token      = "hours"
@@ -97,11 +102,11 @@ resource "aws_cognito_user_pool_client" "mobile" {
     "ALLOW_REFRESH_TOKEN_AUTH"
   ]
 
-  supported_identity_providers = ["COGNITO"]
-  callback_urls                = var.callback_urls
-  logout_urls                  = var.logout_urls
-  allowed_oauth_flows          = ["code"]
-  allowed_oauth_scopes         = ["email", "openid", "profile", "${aws_cognito_resource_server.tng_api.identifier}/wallet:read", "${aws_cognito_resource_server.tng_api.identifier}/payment:create"]
+  supported_identity_providers         = ["COGNITO"]
+  callback_urls                        = var.callback_urls
+  logout_urls                          = var.logout_urls
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = ["email", "openid", "profile", "${aws_cognito_resource_server.tng_api.identifier}/wallet:read", "${aws_cognito_resource_server.tng_api.identifier}/payment:create"]
   allowed_oauth_flows_user_pool_client = true
 
   read_attributes  = ["email", "given_name", "family_name", "custom:kyc_tier", "custom:home_region"]
@@ -116,9 +121,9 @@ resource "aws_cognito_identity_pool" "tng" {
   allow_unauthenticated_identities = false
 
   cognito_identity_providers {
-    client_id              = aws_cognito_user_pool_client.mobile.id
-    provider_name          = "cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.tng.id}"
-    server_side_token_validation = false
+    client_id               = aws_cognito_user_pool_client.mobile.id
+    provider_name           = "cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.tng.id}"
+    server_side_token_check = false
   }
 }
 
@@ -139,8 +144,8 @@ resource "aws_iam_role" "cognito_authenticated" {
           StringEquals = {
             "cognito-identity.amazonaws.com:aud" = aws_cognito_identity_pool.tng.id
           }
-          ForAllValues = {
-            "cognito-identity.amazonaws.com:auth_type" = "authenticated"
+          "ForAnyValue:StringLike" = {
+            "cognito-identity.amazonaws.com:amr" = "authenticated"
           }
         }
       }

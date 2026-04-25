@@ -31,9 +31,9 @@ variable "cross_cloud_bus_name" {
 }
 
 locals {
-  project                    = "tng-finhack"
-  has_stepfunctions_target   = trimspace(var.stepfunctions_arn) != ""
-  has_dead_letter_queue      = trimspace(var.dlq_arn) != ""
+  project                  = "tng-finhack"
+  has_stepfunctions_target = trimspace(var.stepfunctions_arn) != ""
+  has_dead_letter_queue    = trimspace(var.dlq_arn) != ""
 }
 
 resource "aws_cloudwatch_event_bus" "cross_cloud" {

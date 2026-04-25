@@ -108,12 +108,12 @@ locals {
 
   lambda_functions = {
     settle_batch = {
-      function_name                   = "${local.project}-settle-batch"
-      handler                         = "aws_lambda.settle_batch.handler.handler"
-      runtime                         = "python3.12"
-      timeout                         = 30
-      memory_size                     = 512
-      reserved_concurrent_executions  = 50
+      function_name                  = "${local.project}-settle-batch"
+      handler                        = "aws_lambda.settle_batch.handler.handler"
+      runtime                        = "python3.12"
+      timeout                        = 30
+      memory_size                    = 512
+      reserved_concurrent_executions = 50
       environment = {
         DYNAMO_LEDGER_TABLE = var.dynamo_ledger_table_name
         DYNAMO_NONCE_TABLE  = var.dynamo_nonce_table_name
@@ -161,20 +161,20 @@ locals {
       ]
     }
     eb_cross_cloud_bridge_in = {
-      function_name                   = "${local.project}-eb-cross-cloud-bridge-in"
-      handler                         = "aws_lambda.eb_cross_cloud_bridge_in.handler.handler"
-      runtime                         = "python3.12"
-      timeout                         = 15
-      memory_size                     = 256
-      reserved_concurrent_executions  = 10
+      function_name                  = "${local.project}-eb-cross-cloud-bridge-in"
+      handler                        = "aws_lambda.eb_cross_cloud_bridge_in.handler.handler"
+      runtime                        = "python3.12"
+      timeout                        = 15
+      memory_size                    = 256
+      reserved_concurrent_executions = 10
       environment = {
-        DYNAMO_LEDGER_TABLE      = var.dynamo_ledger_table_name
-        DYNAMO_NONCE_TABLE       = var.dynamo_nonce_table_name
-        DYNAMO_PUBKEY_CACHE      = var.dynamo_pubkey_cache_table_name
-        AWS_CROSS_CLOUD_BUS      = var.cross_cloud_bus_name
-        AWS_BRIDGE_HMAC_SECRET   = "secret://${var.bridge_hmac_secret_name}"
-        MODEL_BUCKET             = var.models_bucket_name
-        LOG_LEVEL                = "INFO"
+        DYNAMO_LEDGER_TABLE    = var.dynamo_ledger_table_name
+        DYNAMO_NONCE_TABLE     = var.dynamo_nonce_table_name
+        DYNAMO_PUBKEY_CACHE    = var.dynamo_pubkey_cache_table_name
+        AWS_CROSS_CLOUD_BUS    = var.cross_cloud_bus_name
+        AWS_BRIDGE_HMAC_SECRET = "secret://${var.bridge_hmac_secret_name}"
+        MODEL_BUCKET           = var.models_bucket_name
+        LOG_LEVEL              = "INFO"
       }
       statements = [
         {
@@ -220,12 +220,12 @@ locals {
       ]
     }
     eb_cross_cloud_bridge_out = {
-      function_name                   = "${local.project}-eb-cross-cloud-bridge-out"
-      handler                         = "aws_lambda.eb_cross_cloud_bridge_out.handler.handler"
-      runtime                         = "python3.12"
-      timeout                         = 15
-      memory_size                     = 256
-      reserved_concurrent_executions  = 5
+      function_name                  = "${local.project}-eb-cross-cloud-bridge-out"
+      handler                        = "aws_lambda.eb_cross_cloud_bridge_out.handler.handler"
+      runtime                        = "python3.12"
+      timeout                        = 15
+      memory_size                    = 256
+      reserved_concurrent_executions = 5
       environment = {
         ALIBABA_INGEST_URL     = "secret://${var.alibaba_ingest_url_secret_name}"
         AWS_BRIDGE_HMAC_SECRET = "secret://${var.bridge_hmac_secret_name}"

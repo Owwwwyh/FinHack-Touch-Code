@@ -175,21 +175,21 @@ module "secrets" {
 module "lambda" {
   source = "./lambda"
 
-  aws_region                      = var.aws_region
-  aws_account_id                  = var.aws_account_id
-  environment                     = var.environment
-  project_prefix                  = var.project_prefix
-  app_name                        = var.app_name
-  dynamo_ledger_table_name        = module.dynamodb.token_ledger_table_name
-  dynamo_nonce_table_name         = module.dynamodb.nonce_seen_table_name
-  dynamo_pubkey_cache_table_name  = module.dynamodb.pubkey_cache_table_name
-  cross_cloud_bus_name            = local.cross_cloud_bus_name
-  models_bucket_name              = module.s3.models_bucket_name
-  alibaba_ingest_url_secret_name  = module.secrets.alibaba_ingest_secret_name
-  alibaba_ingest_url_secret_arn   = module.secrets.alibaba_ingest_secret_arn
-  bridge_hmac_secret_name         = module.secrets.bridge_hmac_secret_name
-  bridge_hmac_secret_arn          = module.secrets.bridge_hmac_secret_arn
-  lambda_package_zip              = var.lambda_package_zip
+  aws_region                     = var.aws_region
+  aws_account_id                 = var.aws_account_id
+  environment                    = var.environment
+  project_prefix                 = var.project_prefix
+  app_name                       = var.app_name
+  dynamo_ledger_table_name       = module.dynamodb.token_ledger_table_name
+  dynamo_nonce_table_name        = module.dynamodb.nonce_seen_table_name
+  dynamo_pubkey_cache_table_name = module.dynamodb.pubkey_cache_table_name
+  cross_cloud_bus_name           = local.cross_cloud_bus_name
+  models_bucket_name             = module.s3.models_bucket_name
+  alibaba_ingest_url_secret_name = module.secrets.alibaba_ingest_secret_name
+  alibaba_ingest_url_secret_arn  = module.secrets.alibaba_ingest_secret_arn
+  bridge_hmac_secret_name        = module.secrets.bridge_hmac_secret_name
+  bridge_hmac_secret_arn         = module.secrets.bridge_hmac_secret_arn
+  lambda_package_zip             = var.lambda_package_zip
 }
 
 module "cognito" {
@@ -214,11 +214,11 @@ module "eventbridge" {
 module "apigw" {
   source = "./apigw"
 
-  aws_region                        = var.aws_region
-  custom_domain                     = var.aws_bridge_custom_domain
-  custom_domain_certificate_arn     = var.aws_bridge_custom_domain_certificate_arn
-  bridge_in_lambda_name             = module.lambda.eb_cross_cloud_bridge_in_name
-  bridge_in_lambda_invoke_arn       = module.lambda.eb_cross_cloud_bridge_in_invoke_arn
+  aws_region                    = var.aws_region
+  custom_domain                 = var.aws_bridge_custom_domain
+  custom_domain_certificate_arn = var.aws_bridge_custom_domain_certificate_arn
+  bridge_in_lambda_name         = module.lambda.eb_cross_cloud_bridge_in_name
+  bridge_in_lambda_invoke_arn   = module.lambda.eb_cross_cloud_bridge_in_invoke_arn
 }
 
 # Outputs

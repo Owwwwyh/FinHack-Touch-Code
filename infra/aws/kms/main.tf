@@ -1,6 +1,10 @@
 # KMS key for envelope encryption of S3, DynamoDB, Secrets Manager
 # See docs/05-aws-services.md §7
 
+locals {
+  project = "tng-finhack"
+}
+
 resource "aws_kms_key" "tng" {
   description             = "TNG Finhack encryption key for S3, DynamoDB, Secrets Manager"
   deletion_window_in_days = 10

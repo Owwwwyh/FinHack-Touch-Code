@@ -50,3 +50,10 @@ app.*.map.json
 
 # Local Android SDK path (machine-specific)
 /android/local.properties
+
+# Terraform and local infra inputs
+**/.terraform/
+*.tfstate
+*.tfstate.*
+infra/aws/terraform.tfvars
+infra/aws/lambda/dist/

@@ -81,8 +81,8 @@ resource "aws_secretsmanager_secret_version" "cognito_client_secret" {
 
 # Secret policy: allow Lambda to read
 resource "aws_secretsmanager_secret_policy" "alibaba_lambda_read" {
-  count     = length(var.lambda_role_arns) > 0 ? 1 : 0
-  secret_id = aws_secretsmanager_secret.alibaba_credentials.id
+  count      = length(var.lambda_role_arns) > 0 ? 1 : 0
+  secret_arn = aws_secretsmanager_secret.alibaba_credentials.arn
 
   policy = jsonencode({
     Version = "2012-10-17"

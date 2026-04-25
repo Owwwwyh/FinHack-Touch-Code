@@ -106,6 +106,9 @@ Status by module:
 
 ## 5.1 AWS Compute Deploy Steps
 
+For a strict operator checklist, use
+[docs/14-aws-manual-deploy-runbook.md](14-aws-manual-deploy-runbook.md).
+
 Build the shared Lambda zip:
 
 ```bash

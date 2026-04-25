@@ -29,9 +29,9 @@ variable "bridge_in_lambda_invoke_arn" {
 }
 
 locals {
-  bridge_route           = "/internal/alibaba/events"
-  route_key              = "POST ${local.bridge_route}"
-  custom_domain_enabled  = trimspace(var.custom_domain) != "" && trimspace(var.custom_domain_certificate_arn) != ""
+  bridge_route          = "/internal/alibaba/events"
+  route_key             = "POST ${local.bridge_route}"
+  custom_domain_enabled = trimspace(var.custom_domain) != "" && trimspace(var.custom_domain_certificate_arn) != ""
 }
 
 resource "aws_apigatewayv2_api" "bridge" {

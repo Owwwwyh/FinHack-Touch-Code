@@ -11,12 +11,11 @@ terraform {
 
 # Token ledger table: log of all offline payments settled
 resource "aws_dynamodb_table" "token_ledger" {
-  name           = "${local.project}-token-ledger"
-  billing_mode   = "PAY_PER_REQUEST" # on-demand
-  hash_key       = "tx_id"
-  stream_specification {
-    stream_view_type = "NEW_AND_OLD_IMAGES"
-  }
+  name             = "${local.project}-token-ledger"
+  billing_mode     = "PAY_PER_REQUEST" # on-demand
+  hash_key         = "tx_id"
+  stream_enabled   = true
+  stream_view_type = "NEW_AND_OLD_IMAGES"
   point_in_time_recovery {
     enabled = true
   }
@@ -52,9 +51,9 @@ resource "aws_dynamodb_table" "token_ledger" {
 # PK: nonce
 # TTL: 24 hours (to save storage)
 resource "aws_dynamodb_table" "nonce_seen" {
-  name           = "${local.project}-nonce-seen"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "nonce"
+  name         = "${local.project}-nonce-seen"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "nonce"
   ttl {
     attribute_name = "expires_at"
     enabled        = true
@@ -79,9 +78,9 @@ resource "aws_dynamodb_table" "nonce_seen" {
 # PK: idempotency_key (request_id + endpoint + method)
 # TTL: 24 hours
 resource "aws_dynamodb_table" "idempotency" {
-  name           = "${local.project}-idempotency"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "idempotency_key"
+  name         = "${local.project}-idempotency"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "idempotency_key"
   ttl {
     attribute_name = "expires_at"
     enabled        = true
@@ -106,9 +105,9 @@ resource "aws_dynamodb_table" "idempotency" {
 # PK: kid (device key ID)
 # TTL: 7 days (refilled by pubkey-warmer Lambda every 15 min)
 resource "aws_dynamodb_table" "pubkey_cache" {
-  name           = "${local.project}-pubkey-cache"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "kid"
+  name         = "${local.project}-pubkey-cache"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "kid"
   ttl {
     attribute_name = "expires_at"
     enabled        = true
