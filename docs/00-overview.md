@@ -4,7 +4,7 @@ description: Problem, target user, value proposition, scope, success metrics, FI
 owner: PM
 status: ready
 depends-on: []
-last-updated: 2026-04-25
+last-updated: 2026-04-26
 ---
 
 # Project Overview
@@ -59,7 +59,7 @@ users including unbanked users and low-income communities" definition.
 - iOS support (HCE limitations — Android-first only).
 - Production-grade KYC and AML (stub flow only).
 - Real fiat clearing into bank rails.
-- Merchant dashboard + analytics UI (mocked in pitch).
+- Merchant dashboard + analytics UI (not part of the MVP build).
 
 ## 5. Success metrics for the demo
 
@@ -80,18 +80,16 @@ users including unbanked users and low-income communities" definition.
 | **2. Technical Implementation** | [docs/01-architecture.md](01-architecture.md), [docs/03-token-protocol.md](03-token-protocol.md), [docs/10-security-threat-model.md](10-security-threat-model.md). Real cryptographic non-repudiation, idempotent settlement, hardware-backed keys. |
 | **3. Multi-Cloud Service Usage** | [docs/01-architecture.md](01-architecture.md) §"AWS↔Alibaba boundary calls", [docs/05-aws-services.md](05-aws-services.md), [docs/06-alibaba-services.md](06-alibaba-services.md). Each cloud carries a *purposeful* workload; not duplicated. |
 | **4. Impact & Feasibility** | This doc §1–§3 plus [docs/11-demo-and-test-plan.md](11-demo-and-test-plan.md). Realistic for TNG's existing user base; modest delta to ship. |
-| **5. Presentation & Teamwork** | [docs/11-demo-and-test-plan.md](11-demo-and-test-plan.md) demo storyline, [docs/12-build-tasks.md](12-build-tasks.md) parallel agent tasks, this doc set as documentation quality artifact. |
+| **5. Documentation & Teamwork** | [docs/11-demo-and-test-plan.md](11-demo-and-test-plan.md) demo storyline, [docs/12-build-tasks.md](12-build-tasks.md) execution plan, this doc set as the shared build artifact. |
 
-## 7. Mapping to FINHACK deliverables
+## 7. Ship-first artifacts
 
-| Deliverable | Source |
+| Artifact | Source |
 |---|---|
-| Team Name, Project Name, Track | Submission portal — "Financial Inclusion" track |
-| Implementation & Inspiration | This doc + `Idea.md` |
-| Pitch Deck Link | *to be created from* [docs/11-demo-and-test-plan.md](11-demo-and-test-plan.md) storyline |
-| Demo Video Link | Recorded per [docs/11-demo-and-test-plan.md](11-demo-and-test-plan.md) |
-| Deployment Link | [docs/13-deployment.md](13-deployment.md) — Alibaba API Gateway custom domain |
-| GitHub Repo Link | This repo |
+| Product overview | This doc + `Idea.md` |
+| Working demo flow | [docs/11-demo-and-test-plan.md](11-demo-and-test-plan.md) |
+| Deployment path and blockers | [docs/13-deployment.md](13-deployment.md) |
+| Repository and test suite | This repo |
 
 ## 8. Open questions / explicit decisions
 

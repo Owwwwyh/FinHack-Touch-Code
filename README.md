@@ -2,28 +2,38 @@
 
 > Pay anywhere, even when the network can't.
 
-A Touch 'n Go (TNG) e-wallet extension that lets users transact **offline** via NFC, with an
-on-device AI model determining a "safe offline balance" and cryptographically signed
-tokens that settle automatically when the device is back online.
+A Touch 'n Go (TNG) e-wallet extension that lets users transact **offline** via NFC,
+with an on-device AI model determining a safe offline balance and cryptographically
+signed tokens that settle automatically when the device is back online.
 
 **Track:** Financial Inclusion
 **Hackathon:** TNG Digital FINHACK 2026
-**Clouds:** AWS (training, settlement) + Alibaba Cloud (regional APIs, inference, storage)
+**Clouds:** AWS (ledger, auth, training) + Alibaba Cloud (wallet APIs, storage, inference)
 
 ---
 
+## Current Status
+
+As of 2026-04-26, the repo has a working local vertical slice, but it is **not fully
+done for live cloud deployment yet**.
+
+- Working locally: Flutter app flow, Android NFC/keystore path, local backend settlement path.
+- Verified locally: `flutter test`, `python3 -m pytest backend/tests tests`, `./gradlew app:compileDebugKotlin`.
+- Real Terraform resources exist for AWS `s3`, `dynamodb`, `kms`, `cognito`, `eventbridge`, and `secrets`.
+- Real Terraform resources exist for Alibaba `oss` and `tablestore`.
+- Still missing for live deploy: AWS `lambda` + `apigw`, and Alibaba `fc` + `apigw` + `eas`, are still scaffold-only Terraform contract modules.
+
+Docs `00`-`11` describe the target product and architecture. [docs/12-build-tasks.md](docs/12-build-tasks.md)
+and [docs/13-deployment.md](docs/13-deployment.md) are the source of truth for what
+still needs to ship.
+
 ## Why this matters
 
-Speaker note from TNG: *"How do we involve those still using cash, who feel uncomfortable
-going cashless?"* The answer is removing the connectivity precondition. Rural areas,
-basements, transit, and event venues all break cashless flows today; this project
-keeps the wallet usable in those moments — the wedge for inclusion.
+Cashless adoption still breaks in rural areas, basements, underground transit, and
+packed event venues. This project removes the connectivity precondition so users can
+still pay when the network is unreliable.
 
-## What we're building
-
-> **Status:** Designed and specified. Implementation is in progress per
-> [docs/12-build-tasks.md](docs/12-build-tasks.md). This README will flip to past
-> tense once the vertical-slice demo runs end-to-end.
+## What we're shipping
 
 1. **Flutter Android app** with HCE-based NFC peer-to-peer transfer.
 2. **Ed25519-signed transaction tokens** (JWS) that prove offline payments to the server.
@@ -33,13 +43,14 @@ keeps the wallet usable in those moments — the wedge for inclusion.
 4. **Multi-cloud backend**: AWS for ML + settlement ledger, Alibaba for APAC-resident
    wallet APIs, model distribution, and inference.
 
-See **[docs/00-overview.md](docs/00-overview.md)** for the full pitch.
+See [docs/00-overview.md](docs/00-overview.md) for the product overview and
+[docs/13-deployment.md](docs/13-deployment.md) for the deploy reality.
 
 ## Documentation index
 
 | # | Doc | Purpose |
 |---|-----|---------|
-| 0 | [docs/00-overview.md](docs/00-overview.md) | Problem, value prop, scope, success metrics, criteria mapping |
+| 0 | [docs/00-overview.md](docs/00-overview.md) | Problem, value prop, scope, success metrics |
 | 1 | [docs/01-architecture.md](docs/01-architecture.md) | System diagram, multi-cloud split, data flows |
 | 2 | [docs/02-user-flows.md](docs/02-user-flows.md) | User stories, screens, ASCII wireframes |
 | 3 | [docs/03-token-protocol.md](docs/03-token-protocol.md) | JWS schema, Ed25519, NFC APDU, anti-replay |
@@ -50,47 +61,63 @@ See **[docs/00-overview.md](docs/00-overview.md)** for the full pitch.
 | 8 | [docs/08-backend-api.md](docs/08-backend-api.md) | REST contracts and JSON schemas |
 | 9 | [docs/09-data-model.md](docs/09-data-model.md) | All datastore schemas and key designs |
 | 10 | [docs/10-security-threat-model.md](docs/10-security-threat-model.md) | STRIDE, key lifecycle, KYC tiers |
-| 11 | [docs/11-demo-and-test-plan.md](docs/11-demo-and-test-plan.md) | Demo storyline, test scenarios |
-| 12 | [docs/12-build-tasks.md](docs/12-build-tasks.md) | Work breakdown, milestones, agent assignments |
-| 13 | [docs/13-deployment.md](docs/13-deployment.md) | IaC, env vars, CI, public URL, rollback |
+| 11 | [docs/11-demo-and-test-plan.md](docs/11-demo-and-test-plan.md) | Device demo flow, manual NFC checklist, functional scenarios |
+| 12 | [docs/12-build-tasks.md](docs/12-build-tasks.md) | Remaining engineering work to reach deployable state |
+| 13 | [docs/13-deployment.md](docs/13-deployment.md) | Current deploy status, environment wiring, blockers, smoke tests |
 
 Source idea documents (read-only inputs):
 - [Idea.md](Idea.md) — original brainstorm
 - [HackathonInfo.md](HackathonInfo.md) — judging criteria & deliverables
 - [SpeakerNotes.md](SpeakerNotes.md) — speaker guidance
 
-## FINHACK submission deliverables checklist
+## Ship-First Checklist
 
-- [ ] **Team Name** — *fill in submission portal*
-- [ ] **Project Name** — *Touch 'n Go Offline Wallet (working title)*
-- [ ] **Track** — Financial Inclusion
-- [ ] **Implementation & Inspiration** — see [docs/00-overview.md](docs/00-overview.md)
-- [ ] **Pitch Deck Link** — *to be added*
-- [ ] **Demo Video Link** — *to be added; storyline in [docs/11-demo-and-test-plan.md](docs/11-demo-and-test-plan.md)*
-- [ ] **Deployment Link** — *Alibaba API Gateway custom domain; see [docs/13-deployment.md](docs/13-deployment.md)*
-- [ ] **GitHub Repo Link** — this repository
+- [x] Local Flutter offline request/pay/receive flow
+- [x] Local backend settlement and replay-protection tests
+- [x] Android compile path
+- [x] Mobile settlement endpoint configurable via `--dart-define`
+- [ ] Real AWS Lambda deploy + inbound bridge endpoint
+- [ ] Real Alibaba FC/API Gateway/PAI-EAS deploy
+- [ ] Live AWS↔Alibaba smoke test
+- [ ] Two-device NFC dry run against deployed backend
 
 ## Quickstart for downstream build agents
 
-1. Read **[docs/12-build-tasks.md](docs/12-build-tasks.md)** — tells you what to build first.
-2. Each task is tagged with the doc it depends on. Read the doc, then implement.
-3. Tasks are tagged for parallel execution: `agent:mobile-*`, `agent:backend-*`,
-   `agent:ml-*`, `agent:cloud-aws-*`, `agent:cloud-ali-*`.
+1. Read [docs/12-build-tasks.md](docs/12-build-tasks.md) first.
+2. Read [docs/13-deployment.md](docs/13-deployment.md) before touching cloud infra.
+3. Run the local backend with `python3 backend/server.py`.
+4. Verify the repo before changing behavior:
 
-## Repository layout (target)
+```bash
+flutter test
+python3 -m pytest backend/tests tests
+(cd android && ./gradlew app:compileDebugKotlin)
+```
+
+5. Run the app against the local backend:
+
+```bash
+flutter run \
+  --dart-define=API_BASE_URL=http://10.0.2.2:3000/v1 \
+  --dart-define=API_BEARER_TOKEN=demo-token \
+  --dart-define=DEVICE_ID=did:tng:device:demo
+```
+
+## Repository layout
 
 ```
 .
-├── README.md                 # this file
-├── Idea.md                   # source brainstorm (read-only)
-├── HackathonInfo.md          # judging criteria (read-only)
-├── SpeakerNotes.md           # speaker hints (read-only)
-├── docs/                     # build spec — start here
-├── mobile/                   # Flutter Android app           (to be created)
-├── backend/                  # Lambda + FC handlers          (to be created)
-├── ml/                       # training notebook + scripts    (to be created)
+├── README.md
+├── docs/
+├── lib/                      # Flutter app
+├── android/                  # Android NFC + keystore code
+├── backend/                  # Local server, FC handlers, AWS Lambda handlers
+├── ml/                       # training + synthetic data scripts
+├── test/                     # Flutter tests
 ├── infra/
-│   ├── aws/                  # Terraform AWS                  (to be created)
-│   └── alibaba/              # Terraform/ROS Alibaba          (to be created)
-└── scripts/                  # synthetic data, helpers        (to be created)
+│   ├── aws/                  # Terraform for AWS
+│   └── alibaba/              # Terraform for Alibaba
+├── Idea.md
+├── HackathonInfo.md
+└── SpeakerNotes.md
 ```

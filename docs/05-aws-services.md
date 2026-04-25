@@ -9,6 +9,11 @@ last-updated: 2026-04-25
 
 # AWS Services
 
+> Status note (2026-04-26): this doc describes the **target AWS design**. The current
+> repo only has real Terraform resources for `s3`, `dynamodb`, `kms`, `cognito`,
+> `eventbridge`, and `secrets`. `infra/aws/lambda` and `infra/aws/apigw` are still
+> scaffold contracts. See [docs/13-deployment.md](13-deployment.md) for deploy truth.
+
 Account region: **`ap-southeast-1` (Singapore)** for latency to APAC users; SageMaker
 training in `ap-southeast-1` too. Multi-AZ for production; single-AZ acceptable for
 demo.

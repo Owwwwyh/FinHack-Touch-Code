@@ -1,103 +1,119 @@
 ---
 name: 13-deployment
-description: Local dev, IaC layout, env vars, secrets, CI, public URL, rollback
+description: Current local run path, infra reality, deploy blockers, environment wiring, smoke tests
 owner: DevOps
-status: ready
+status: active
 depends-on: [05-aws-services, 06-alibaba-services]
-last-updated: 2026-04-25
+last-updated: 2026-04-26
 ---
 
 # Deployment
 
-## 1. Environments
+## 1. Reality Check
+
+This doc is the source of truth for **what can actually be deployed from this repo today**.
+
+| Area | Current state | Notes |
+|---|---|---|
+| Flutter app | works locally | tested with `flutter test` |
+| Android build | works locally | `./gradlew app:compileDebugKotlin` passes |
+| Local backend | works locally | run `python3 backend/server.py` |
+| AWS base infra | real Terraform resources | `s3`, `dynamodb`, `kms`, `cognito`, `eventbridge`, `secrets` |
+| AWS compute | not deployable yet | `infra/aws/lambda` and `infra/aws/apigw` are scaffold-only `terraform_data` modules |
+| Alibaba base infra | real Terraform resources | `oss`, `tablestore` |
+| Alibaba compute | not deployable yet | `infra/alibaba/fc`, `infra/alibaba/apigw`, `infra/alibaba/eas` are scaffold-only `terraform_data` modules |
+| Public demo URL | not live yet | no real compute-backed public deployment exists from this repo yet |
+
+## 2. Environments
 
 | Env | Purpose | URL |
 |---|---|---|
-| `local` | Developer laptops | `http://localhost:3000` (mock backend) |
-| `demo` | Live hackathon demo | `https://api-finhack.example.com` |
-| `staging` | (optional) pre-demo dry-run | same infra, separate Tablestore instance |
+| `local` | Developer laptops | `http://localhost:3000` |
+| `demo` | Live hackathon demo | `https://api-finhack.example.com` once compute modules are real |
 
-For the hackathon, only `local` and `demo` are required.
+Only `local` is real today. `demo` is the target environment.
 
-## 2. Local dev
+## 3. Local Dev
 
-`scripts/local-stack.sh` brings up:
-- LocalStack for AWS-likes (DynamoDB, S3, EventBridge stubs).
-- Tablestore + OSS local mocks aren't first-class → use the Alibaba SDK pointed at
-  *real* dev resources but with a separate `tng-finhack-dev` Tablestore instance.
-- A Python Flask shim that mimics the FC HTTP routes so mobile devs can iterate
-  without deploying.
+The current working local path is the Python server in [backend/server.py](/Users/mkfoo/Desktop/FinHack-Touch-Code/backend/server.py:1).
 
-`docker-compose.yml`:
-```yaml
-version: "3.9"
-services:
-  localstack:
-    image: localstack/localstack:3
-    environment:
-      SERVICES: dynamodb,s3,kms,events,lambda
-    ports: ["4566:4566"]
-  fc-shim:
-    build: ./backend/fc-shim
-    ports: ["3000:3000"]
-    environment:
-      AWS_ENDPOINT_URL: http://localstack:4566
-      ALIBABA_OTS_ENDPOINT: ${ALIBABA_OTS_ENDPOINT}
-      ALIBABA_OTS_INSTANCE: tng-finhack-dev
-      COGNITO_JWKS_URL: ${COGNITO_JWKS_URL}
+Start it with:
+
+```bash
+python3 backend/server.py
 ```
 
-Mobile dev points to `http://10.0.2.2:3000/v1` on Android emulator.
+Run the Flutter app against that server with:
 
-## 3. IaC layout
+```bash
+flutter run \
+  --dart-define=API_BASE_URL=http://10.0.2.2:3000/v1 \
+  --dart-define=API_BEARER_TOKEN=demo-token \
+  --dart-define=DEVICE_ID=did:tng:device:demo
+```
+
+The repo does **not** currently contain `scripts/local-stack.sh`, `docker-compose.yml`,
+`scripts/seed-demo-users.sh`, or `scripts/warmup.sh`, so do not rely on those paths.
+
+## 4. IaC Layout In The Repo
 
 ```
 infra/
 ├── aws/
 │   ├── main.tf
-│   ├── backend.tf            # remote state on S3 + DynamoDB lock
 │   ├── s3/
 │   ├── dynamodb/
 │   ├── kms/
 │   ├── cognito/
 │   ├── eventbridge/
 │   ├── lambda/
-│   ├── stepfunctions/
-│   ├── sagemaker/
 │   ├── apigw/
 │   └── secrets/
 ├── alibaba/
-│   ├── main.ros
-│   ├── backend.ros
+│   ├── main.tf
 │   ├── oss/
 │   ├── tablestore/
-│   ├── rds/
 │   ├── fc/
 │   ├── apigw/
-│   ├── eas/
-│   ├── kms/
-│   ├── push/
-│   ├── eb/
-│   └── monitor/
-└── migrations/
-    └── 2026-04-25-init.sql
+│   └── eas/
 ```
 
-State management: AWS Terraform state in S3 + DynamoDB lock. Alibaba ROS uses ROS
-state automatically; alternatively Alibaba Terraform provider with state in OSS.
+Status by module:
 
-## 4. Environment variable matrix
+| Path | Status |
+|---|---|
+| `infra/aws/s3` | real resources |
+| `infra/aws/dynamodb` | real resources |
+| `infra/aws/kms` | real resources |
+| `infra/aws/cognito` | real resources |
+| `infra/aws/eventbridge` | real resources |
+| `infra/aws/secrets` | real resources |
+| `infra/aws/lambda` | scaffold-only contract |
+| `infra/aws/apigw` | scaffold-only contract |
+| `infra/alibaba/oss` | real resources |
+| `infra/alibaba/tablestore` | real resources |
+| `infra/alibaba/fc` | scaffold-only contract |
+| `infra/alibaba/apigw` | scaffold-only contract |
+| `infra/alibaba/eas` | scaffold-only contract |
 
-### Mobile app (`mobile/.env`)
+## 5. Critical Blockers To A Real Deploy
+
+1. [infra/aws/lambda/main.tf](/Users/mkfoo/Desktop/FinHack-Touch-Code/infra/aws/lambda/main.tf:1) only outputs names and env contracts. It does not create `aws_lambda_function`, IAM roles, or packaged artifacts.
+2. [infra/aws/apigw/main.tf](/Users/mkfoo/Desktop/FinHack-Touch-Code/infra/aws/apigw/main.tf:1) only outputs a route contract. It does not create an AWS HTTP API.
+3. [infra/alibaba/fc/main.tf](/Users/mkfoo/Desktop/FinHack-Touch-Code/infra/alibaba/fc/main.tf:1) only defines route and environment contracts. It does not create Function Compute services or functions.
+4. [infra/alibaba/apigw/main.tf](/Users/mkfoo/Desktop/FinHack-Touch-Code/infra/alibaba/apigw/main.tf:1) only defines a public domain contract. It does not create real API Gateway routes.
+5. [infra/alibaba/eas/main.tf](/Users/mkfoo/Desktop/FinHack-Touch-Code/infra/alibaba/eas/main.tf:1) only defines an endpoint contract. It does not create a PAI-EAS deployment.
+6. The mobile app used to hardcode the local backend URL. It now reads build-time values via `--dart-define`, which still needs to be wired into the release workflow.
+
+## 6. Environment Wiring
+
+### Flutter build flags
+
 | Var | local | demo |
 |---|---|---|
 | `API_BASE_URL` | `http://10.0.2.2:3000/v1` | `https://api-finhack.example.com/v1` |
-| `COGNITO_DOMAIN` | (mock) | `tng-finhack.auth.ap-southeast-1.amazoncognito.com` |
-| `COGNITO_CLIENT_ID` | (mock) | from Cognito output |
-| `OSS_PUBKEY_BUCKET` | (n/a) | `tng-finhack-pubkeys` |
-
-Loaded via `flutter_dotenv` at app start; baked into release APK from CI secrets for
-demo build.
+| `API_BEARER_TOKEN` | `demo-token` | real Cognito access token or a demo token accepted by the deployed API |
+| `DEVICE_ID` | `did:tng:device:demo` | real device id from registration |
 
 ### AWS Lambdas (set in Terraform)
 | Var | Notes |
@@ -105,9 +121,9 @@ demo build.
 | `DYNAMO_LEDGER_TABLE` | `tng_token_ledger` |
 | `DYNAMO_NONCE_TABLE` | `tng_nonce_seen` |
 | `DYNAMO_PUBKEY_CACHE` | `tng_pubkey_cache` |
-| `EVENTBRIDGE_BUS` | `tng-cross-cloud` |
+| `AWS_CROSS_CLOUD_BUS` | `tng-cross-cloud` |
 | `ALIBABA_INGEST_URL` | from Secrets Manager `tng-finhack/alibaba-ingest` |
-| `ALIBABA_INGEST_HMAC_SECRET` | from Secrets Manager |
+| `AWS_BRIDGE_HMAC_SECRET` | from Secrets Manager |
 | `MODEL_BUCKET` | `tng-finhack-aws-models` |
 | `LOG_LEVEL` | `INFO` |
 
@@ -123,7 +139,10 @@ demo build.
 | `AWS_BRIDGE_HMAC_SECRET` | from KMS |
 | `COGNITO_JWKS_URL` | from KMS |
 
-## 5. Secrets
+These variables are correct for the runtime handlers, but the compute modules that
+should apply them are still scaffold-only.
+
+## 7. Secrets
 
 | Secret | Stored in | Used by |
 |---|---|---|
@@ -134,77 +153,31 @@ demo build.
 | Cognito client secret | none (PKCE public client) | — |
 | Sigstore signing key | Cosign keyless via OIDC | Step Functions Lambda |
 
-Rotation cadence: secret-manager-managed, 30d default.
+## 8. Suggested Apply Order
 
-## 6. CI/CD (GitHub Actions sketch)
+1. Apply AWS foundation modules that are already real.
+2. Apply Alibaba foundation modules that are already real.
+3. Replace the scaffold compute modules with real deploy resources.
+4. Apply AWS compute.
+5. Apply Alibaba compute.
+6. Seed two demo users, devices, and balances.
+7. Run the smoke tests below.
 
-`.github/workflows/build-mobile.yml`
-- On push to `main`: lint, test, build APK, upload as artifact.
-
-`.github/workflows/backend.yml`
-- On push to `backend/**`: lint, test, packaging.
-- On `release/*` tag: deploy Lambdas + FC functions.
-
-`.github/workflows/infra.yml`
-- On push to `infra/**`: `terraform plan` posted as PR comment; manual approve →
-  `terraform apply` on protected branch.
-
-Demo build path:
-```
-git tag demo-v1
-git push origin demo-v1
-# → CI builds signed APK, deploys IaC, prints public URL
-```
-
-## 7. Public deployment URL
-
-- Custom domain `api-finhack.example.com` on Alibaba API Gateway.
-- ACM certificate (Alibaba SSL) auto-issued + bound.
-- DNS: CNAME from your demo domain to API GW canonical hostname.
-
-## 8. Rollback plan
-
-| Failure | Rollback action |
-|---|---|
-| Bad Lambda deploy | `terraform plan -var image_tag=previous && apply` (Lambdas pinned by image tag in ECR) |
-| Bad FC deploy | FC versioning: switch alias `live` to previous version |
-| Bad model OTA | Pull policy back to previous via `Tablestore.policy_versions` flip; mobile picks up on next `GET /score/policy` |
-| Bad migration | RDS: revert via `migrations/<date>-revert-<slug>.sql`; demo seeds reseeded from snapshot |
-| Cross-cloud bridge HMAC mismatch | Re-deploy with rotated secret on both sides |
-
-## 9. Demo-day playbook
-
-Pre-demo (T−60min):
-1. `terraform apply` both clouds — confirm clean.
-2. Run `scripts/seed-demo-users.sh` — Faiz + Aida wallets seeded.
-3. Run `scripts/warmup.sh` — pre-warms PAI-EAS + Lambda.
-4. Open both dashboards.
-5. Verify both Pixel devices have latest demo APK.
-6. Verify NFC tap test passes per [docs/11 §5](11-demo-and-test-plan.md).
-
-Post-demo cleanup:
-- `terraform destroy` only after submission complete.
-
-## 10. Cost ceilings
-
-Set AWS Budget alert at $25, Alibaba spending limit at $30 for the hackathon window.
-Alarms ping Slack webhook (stubbed). Hard cutover not enabled — don't risk taking the
-demo offline mid-judging.
-
-## 11. Logs & observability
+## 9. Smoke Tests
 
 | Source | Destination |
 |---|---|
-| FC functions | Alibaba SLS `tng-finhack-logs` |
-| EAS endpoint | Alibaba SLS + EAS metric stream |
-| Lambdas | CloudWatch Logs |
-| API Gateway access logs | both clouds, separate log stores |
-| Cross-cloud bridge | both sides log full payload (PII-scrubbed) |
+| Local wallet read | `curl -H 'Authorization: Bearer demo' http://localhost:3000/v1/wallet/balance` |
+| Local score refresh | `curl -X POST -H 'Content-Type: application/json' -H 'Authorization: Bearer demo' http://localhost:3000/v1/score/refresh -d '{"user_id":"demo_user","features":{"tx_count_30d":10}}'` |
+| Local settlement | `curl -X POST -H 'Content-Type: application/json' -H 'Authorization: Bearer demo' http://localhost:3000/v1/tokens/settle -d '{"device_id":"did:tng:device:demo","batch_id":"batch-local","tokens":["<JWS>"],"ack_signatures":[]}'` |
+| Deployed wallet read | same route against the live base URL with a real token |
+| Deployed score refresh | same route against the live base URL with a real token |
+| Deployed settlement | same route against the live base URL with a real token and a real JWS |
 
-Dashboards live and screenshotted in `deliverables/screenshots/` before each dry run.
+## 10. Deployment Done Means
 
-## 12. Disaster recovery (post-MVP)
-
-Out of scope for hackathon, but the data residency choices already enable an
-RTO/RPO discussion: ledger PITR on DynamoDB → 5-min RPO; Tablestore continuous
-backup → seconds-RPO; RDS daily snapshots → 24h RPO acceptable for analytics.
+- AWS Lambda and AWS API Gateway are real resources, not `terraform_data` outputs.
+- Alibaba FC, API Gateway, and EAS are real resources, not `terraform_data` outputs.
+- The Flutter build can target the deployed base URL without editing source.
+- One phone can reconnect and settle an offline payment through the live cloud path.
+- Replay is rejected in the deployed environment.

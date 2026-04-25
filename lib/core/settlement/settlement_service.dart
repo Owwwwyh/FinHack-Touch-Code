@@ -3,10 +3,9 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../config/app_config.dart';
 import '../../domain/models/offline_transfer.dart';
 
-const _baseUrl = 'http://10.0.2.2:3000/v1';
-const _demoAuthToken = 'demo-token';
 const _maxBatchSize = 50;
 
 class RejectedToken {
@@ -28,10 +27,8 @@ class SettlementService {
   final HttpClient _httpClient;
 
   Future<SettlementResult> settleBatch(List<OfflineTransfer> tokens) async {
-    final batch = tokens
-        .where((t) => t.jws != null)
-        .take(_maxBatchSize)
-        .toList();
+    final batch =
+        tokens.where((t) => t.jws != null).take(_maxBatchSize).toList();
 
     if (batch.isEmpty) {
       return const SettlementResult(settledIds: [], rejected: []);
@@ -47,18 +44,21 @@ class SettlementService {
         .toList();
 
     final body = jsonEncode({
-      'device_id': 'did:tng:device:demo',
+      'device_id': AppConfig.deviceId,
       'batch_id': _batchId(),
       'tokens': batch.map((t) => t.jws!).toList(),
       'ack_signatures': ackSignatures,
     });
 
     final request = await _httpClient
-        .postUrl(Uri.parse('$_baseUrl/tokens/settle'))
+        .postUrl(Uri.parse('${AppConfig.apiBaseUrl}/tokens/settle'))
         .timeout(const Duration(seconds: 10));
     request.headers
       ..set(HttpHeaders.contentTypeHeader, 'application/json; charset=utf-8')
-      ..set(HttpHeaders.authorizationHeader, 'Bearer $_demoAuthToken');
+      ..set(
+        HttpHeaders.authorizationHeader,
+        'Bearer ${AppConfig.apiBearerToken}',
+      );
     request.write(body);
 
     final response = await request.close();
@@ -92,7 +92,8 @@ class SettlementService {
   }
 
   String _batchId() {
-    final ms = DateTime.now().millisecondsSinceEpoch.toRadixString(36).toUpperCase();
+    final ms =
+        DateTime.now().millisecondsSinceEpoch.toRadixString(36).toUpperCase();
     return '01${ms.padLeft(10, '0')}BAT';
   }
 }

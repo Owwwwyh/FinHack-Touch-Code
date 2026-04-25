@@ -30,7 +30,7 @@ def compute_score_response(
     if not isinstance(payload, dict):
         raise ScoreInputError("Request body must be a JSON object")
 
-    user_id = _require_string(payload, "user_id")
+    _require_string(payload, "user_id")
     policy_version = _require_string(payload, "policy_version")
     features = payload.get("features")
     if not isinstance(features, dict):
@@ -38,19 +38,19 @@ def compute_score_response(
 
     parsed = {name: _require_float(features, name) for name in REQUIRED_FEATURES}
     kyc_tier = int(round(parsed["kyc_tier"]))
-    hard_cap_cents = _hard_cap_for_tier(kyc_tier)
+    hard_cap_cents = hard_cap_for_tier(kyc_tier)
 
-    resolved_cached_balance_cents = _resolve_money_cents(
+    resolved_cached_balance_cents = resolve_money_cents(
         payload.get("cached_balance_myr"),
         fallback=max(cached_balance_cents, 0),
         field_name="cached_balance_myr",
     )
-    manual_offline_wallet_cents = _resolve_money_cents(
+    manual_offline_wallet_cents = resolve_money_cents(
         payload.get("manual_offline_wallet_myr"),
         fallback=max(default_manual_offline_cents, 0),
         field_name="manual_offline_wallet_myr",
     )
-    lifetime_tx_count = _resolve_int(payload.get("lifetime_tx_count"), default=600)
+    lifetime_tx_count = resolve_int(payload.get("lifetime_tx_count"), default=600)
 
     if lifetime_tx_count < 600:
         safe_balance_cents = min(
@@ -86,15 +86,14 @@ def compute_score_response(
         )
 
     return {
-        "user_id": user_id,
-        "safe_offline_balance_myr": _format_cents(safe_balance_cents),
+        "safe_offline_balance_myr": format_cents(safe_balance_cents),
         "confidence": round(min(max(confidence, 0.0), 0.99), 2),
         "policy_version": policy_version,
         "computed_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
-def _hard_cap_for_tier(tier: int) -> int:
+def hard_cap_for_tier(tier: int) -> int:
     if tier <= 0:
         return 2000
     if tier == 1:
@@ -125,7 +124,7 @@ def _require_float(features: dict, field_name: str) -> float:
         raise ScoreInputError(f"features.{field_name} must be numeric") from None
 
 
-def _resolve_money_cents(value, *, fallback: int, field_name: str) -> int:  # noqa: ANN001
+def resolve_money_cents(value, *, fallback: int, field_name: str) -> int:  # noqa: ANN001
     if value is None:
         return fallback
 
@@ -135,7 +134,7 @@ def _resolve_money_cents(value, *, fallback: int, field_name: str) -> int:  # no
         raise ScoreInputError(f"{field_name} must be a money string/number") from None
 
 
-def _resolve_int(value, *, default: int) -> int:  # noqa: ANN001
+def resolve_int(value, *, default: int) -> int:  # noqa: ANN001
     if value is None:
         return default
 
@@ -145,7 +144,7 @@ def _resolve_int(value, *, default: int) -> int:  # noqa: ANN001
         raise ScoreInputError("lifetime_tx_count must be an integer") from None
 
 
-def _format_cents(cents: int) -> str:
+def format_cents(cents: int) -> str:
     whole = cents // 100
     fraction = str(cents % 100).zfill(2)
     return f"{whole}.{fraction}"

@@ -11,7 +11,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from lib import demo_state
 from lib.jwt_middleware import JwtVerificationError, get_jwt_middleware
-from lib.score_inference import ScoreInputError, compute_score_response
+from lib.score_inference import ScoreInputError
+from lib.score_refresh_service import refresh_score_response
 
 
 def _error(start_response, http_status: str, code: str, message: str, request_id: str):
@@ -48,10 +49,13 @@ def handler(environ, start_response):
     wallet = demo_state.get_wallet(user_id)
 
     try:
-        response_body = compute_score_response(
+        response_body = refresh_score_response(
             body,
             cached_balance_cents=wallet["balance_cents"],
             default_manual_offline_cents=wallet["safe_offline_balance_cents"],
+            eas_endpoint=os.environ.get("EAS_ENDPOINT", ""),
+            eas_token=os.environ.get("EAS_TOKEN", ""),
+            timeout_seconds=_timeout_seconds(),
         )
     except ScoreInputError as exc:
         return _error(start_response, "400 Bad Request", "BAD_REQUEST", str(exc), request_id)
@@ -65,3 +69,11 @@ def handler(environ, start_response):
         ],
     )
     return [json.dumps(response_body).encode("utf-8")]
+
+
+def _timeout_seconds() -> float:
+    raw = os.environ.get("EAS_TIMEOUT_SECONDS", "0.8")
+    try:
+        return float(raw)
+    except ValueError:
+        return 0.8

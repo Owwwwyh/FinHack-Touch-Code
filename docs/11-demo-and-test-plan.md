@@ -33,7 +33,7 @@ last-updated: 2026-04-25
 | 3:10 | "What if someone tries to double-spend?" Trigger the prepared replay (re-submit same JWS via curl). | Dashboard shows REJECTED reason=NONCE_REUSED. | Conditional put fails. |
 | 3:25 | "The AI knows Faiz spent RM 8.50 offline." Show Faiz's AI panel. | Safe offline dropped: RM 120 → RM 111.50. | Local recomputation on next TF Lite run. |
 | 3:40 | Faiz toggles airplane off. | Faiz's outbox flushes; UI shows ✓. Idempotency cache returns prior result. | Same settle path, idempotency-key hit. |
-| 3:50 | "AWS handles the ledger and ML training. Alibaba handles APAC inference and wallet APIs. Two clouds, each purposeful." Show boundary-call table image. | Brief pitch. | — |
+| 3:50 | "AWS handles the ledger and ML training. Alibaba handles APAC inference and wallet APIs. Two clouds, each purposeful." Show boundary-call table or live logs. | Why the cloud split is real. | — |
 | 4:00 | Done. | "Pay anywhere — even when the network can't." | — |
 
 ## 2. Demo prep checklist
@@ -129,15 +129,3 @@ To run on each demo device pair before any practice:
 | Settle 50-token batch p95 | < 3s | Load test: 100 batches via `backend/tests/load.k6.js` |
 | TF Lite inference | < 30ms | flutter_test perf benchmark |
 | PAI-EAS p95 | < 250ms | EAS metric |
-
-## 7. Pitch deck ↔ doc mapping (so the deck stays consistent)
-
-| Slide | Sourced from |
-|---|---|
-| Problem | [docs/00-overview.md §1](00-overview.md) |
-| Solution | [docs/00-overview.md §2](00-overview.md) |
-| Architecture diagram | [docs/01-architecture.md §1](01-architecture.md) |
-| AI explainer | [docs/04-credit-score-ml.md §3, §5](04-credit-score-ml.md) |
-| Multi-cloud rationale | [docs/01-architecture.md §3, §4](01-architecture.md) |
-| Live demo | this doc §1 |
-| Roadmap | [docs/00-overview.md §4 + docs/10-security-threat-model.md §10](10-security-threat-model.md) |

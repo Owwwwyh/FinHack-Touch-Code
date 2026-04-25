@@ -9,7 +9,7 @@ terraform {
   }
 }
 
-# Secret for Alibaba API credentials
+# Secret for Alibaba API credentials (kept for future model publish automation)
 resource "aws_secretsmanager_secret" "alibaba_credentials" {
   name                    = "${local.project}-alibaba-credentials"
   description             = "Alibaba Cloud AccessKey and SecretKey for cross-cloud bridge"
@@ -31,6 +31,38 @@ resource "aws_secretsmanager_secret_version" "alibaba_credentials" {
   })
 }
 
+# Secret used by eb-cross-cloud-bridge-out for the callback target.
+resource "aws_secretsmanager_secret" "alibaba_ingest" {
+  name                    = "${local.project}-alibaba-ingest"
+  description             = "Alibaba ingest URL for settlement.completed callbacks"
+  recovery_window_in_days = 7
+
+  tags = {
+    Name = "${local.project}-alibaba-ingest"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "alibaba_ingest" {
+  secret_id     = aws_secretsmanager_secret.alibaba_ingest.id
+  secret_string = var.alibaba_ingest_url
+}
+
+# Shared HMAC secret mirrored to Alibaba for bridge authentication.
+resource "aws_secretsmanager_secret" "bridge_hmac_secret" {
+  name                    = "${local.project}-aws-bridge-hmac-secret"
+  description             = "Shared AWS<->Alibaba HMAC secret for bridge payload signing"
+  recovery_window_in_days = 7
+
+  tags = {
+    Name = "${local.project}-bridge-hmac-secret"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "bridge_hmac_secret" {
+  secret_id     = aws_secretsmanager_secret.bridge_hmac_secret.id
+  secret_string = var.bridge_hmac_secret
+}
+
 # Secret for Cognito client secret (if needed for backend calls)
 resource "aws_secretsmanager_secret" "cognito_client_secret" {
   name                    = "${local.project}-cognito-client-secret"
@@ -49,6 +81,7 @@ resource "aws_secretsmanager_secret_version" "cognito_client_secret" {
 
 # Secret policy: allow Lambda to read
 resource "aws_secretsmanager_secret_policy" "alibaba_lambda_read" {
+  count     = length(var.lambda_role_arns) > 0 ? 1 : 0
   secret_id = aws_secretsmanager_secret.alibaba_credentials.id
 
   policy = jsonencode({
@@ -104,6 +137,19 @@ variable "cognito_client_secret" {
   default     = ""
 }
 
+variable "alibaba_ingest_url" {
+  description = "Alibaba ingest URL consumed by the outbound bridge"
+  type        = string
+  default     = ""
+}
+
+variable "bridge_hmac_secret" {
+  description = "Shared HMAC secret for AWS<->Alibaba bridge traffic"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "lambda_role_arns" {
   description = "ARNs of Lambda IAM roles that can read secrets"
   type        = list(string)
@@ -126,4 +172,20 @@ output "alibaba_credentials_secret_name" {
 
 output "cognito_client_secret_arn" {
   value = aws_secretsmanager_secret.cognito_client_secret.arn
+}
+
+output "alibaba_ingest_secret_arn" {
+  value = aws_secretsmanager_secret.alibaba_ingest.arn
+}
+
+output "alibaba_ingest_secret_name" {
+  value = aws_secretsmanager_secret.alibaba_ingest.name
+}
+
+output "bridge_hmac_secret_arn" {
+  value = aws_secretsmanager_secret.bridge_hmac_secret.arn
+}
+
+output "bridge_hmac_secret_name" {
+  value = aws_secretsmanager_secret.bridge_hmac_secret.name
 }

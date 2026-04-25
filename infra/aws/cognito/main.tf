@@ -94,13 +94,6 @@ resource "aws_cognito_user_pool_client" "mobile" {
     "ALLOW_REFRESH_TOKEN_AUTH"
   ]
 
-  auth_flows_config {
-    flows = [
-      "USER_PASSWORD_AUTH",
-      "ALLOW_REFRESH_TOKEN_AUTH"
-    ]
-  }
-
   supported_identity_providers = ["COGNITO"]
   callback_urls                = var.callback_urls
   logout_urls                  = var.logout_urls
@@ -121,7 +114,7 @@ resource "aws_cognito_identity_pool" "tng" {
 
   cognito_identity_providers {
     client_id              = aws_cognito_user_pool_client.mobile.id
-    provider_name          = aws_cognito_user_pool.tng.endpoint
+    provider_name          = "cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.tng.id}"
     server_side_token_validation = false
   }
 }
@@ -206,6 +199,12 @@ variable "models_bucket_name" {
   type        = string
 }
 
+variable "aws_region" {
+  description = "AWS region for issuer/JWKS rendering"
+  type        = string
+  default     = "ap-southeast-1"
+}
+
 # Locals (same as main.tf)
 locals {
   project = "tng-finhack"
@@ -221,7 +220,7 @@ output "user_pool_arn" {
 }
 
 output "user_pool_endpoint" {
-  value = aws_cognito_user_pool.tng.endpoint
+  value = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.tng.id}"
 }
 
 output "app_client_id" {
@@ -234,7 +233,11 @@ output "app_client_secret" {
 }
 
 output "jwks_uri" {
-  value = "${aws_cognito_user_pool.tng.endpoint}/.well-known/jwks.json"
+  value = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.tng.id}/.well-known/jwks.json"
+}
+
+output "issuer" {
+  value = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.tng.id}"
 }
 
 output "identity_pool_id" {
