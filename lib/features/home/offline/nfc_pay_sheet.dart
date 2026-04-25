@@ -52,7 +52,9 @@ class _NfcPaySheetState extends State<NfcPaySheet> {
     if (_stage != _Stage.entry) return;
     setState(() {
       if (k == 'del') {
-        _amountText = _amountText.isEmpty ? '' : _amountText.substring(0, _amountText.length - 1);
+        _amountText = _amountText.isEmpty
+            ? ''
+            : _amountText.substring(0, _amountText.length - 1);
       } else if (k == '.' && _amountText.contains('.')) {
         // ignore duplicate decimal
       } else if (_amountText.contains('.') &&
@@ -86,7 +88,8 @@ class _NfcPaySheetState extends State<NfcPaySheet> {
         senderMac: 'A4:F2:9B:17',
         timestamp:
             '${now.year}-${pad(now.month, 2)}-${pad(now.day, 2)} ${pad(now.hour, 2)}:${pad(now.minute, 2)}',
-        signature: List.generate(32, (_) => rng.nextInt(16).toRadixString(16)).join(),
+        signature:
+            List.generate(32, (_) => rng.nextInt(16).toRadixString(16)).join(),
       );
       Navigator.pop(context, token);
     });
@@ -106,8 +109,9 @@ class _NfcPaySheetState extends State<NfcPaySheet> {
           Container(
             width: 40,
             height: 4,
-            decoration:
-                BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(2)),
+            decoration: BoxDecoration(
+                color: const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(2)),
           ),
           const SizedBox(height: 12),
           if (_stage == _Stage.entry) ..._entryContent(),
@@ -124,16 +128,21 @@ class _NfcPaySheetState extends State<NfcPaySheet> {
             const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Offline NFC Payment', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+                Text('Offline NFC Payment',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
                 Text('Enter Amount',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF0F172A))),
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0F172A))),
               ],
             ),
             const Spacer(),
             IconButton(
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.close),
-              style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9)),
+              style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFFF1F5F9)),
             ),
           ],
         ),
@@ -152,7 +161,10 @@ class _NfcPaySheetState extends State<NfcPaySheet> {
           child: Column(
             children: [
               const Text('YOU\'RE SENDING',
-                  style: TextStyle(fontSize: 10, color: Color(0xFF2563EB), letterSpacing: 0.8)),
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF2563EB),
+                      letterSpacing: 0.8)),
               const SizedBox(height: 4),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -162,13 +174,18 @@ class _NfcPaySheetState extends State<NfcPaySheet> {
                     padding: EdgeInsets.only(bottom: 6),
                     child: Text('RM',
                         style: TextStyle(
-                            fontSize: 16, color: Color(0xFF2563EB), fontWeight: FontWeight.w600)),
+                            fontSize: 16,
+                            color: Color(0xFF2563EB),
+                            fontWeight: FontWeight.w600)),
                   ),
                   const SizedBox(width: 4),
                   Text(
                     _amountText.isEmpty ? '0' : _amountText,
                     style: const TextStyle(
-                        fontSize: 44, fontWeight: FontWeight.w700, color: Color(0xFF0F172A), letterSpacing: -1),
+                        fontSize: 44,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                        letterSpacing: -1),
                   ),
                 ],
               ),
@@ -188,7 +205,8 @@ class _NfcPaySheetState extends State<NfcPaySheet> {
         const SizedBox(height: 12),
         const Align(
           alignment: Alignment.centerLeft,
-          child: Text('To merchant', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+          child: Text('To merchant',
+              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
         ),
         const SizedBox(height: 6),
         SizedBox(
@@ -206,7 +224,9 @@ class _NfcPaySheetState extends State<NfcPaySheet> {
                   decoration: BoxDecoration(
                     color: sel ? const Color(0xFF2563EB) : Colors.white,
                     border: Border.all(
-                        color: sel ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0)),
+                        color: sel
+                            ? const Color(0xFF2563EB)
+                            : const Color(0xFFE2E8F0)),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   alignment: Alignment.center,
@@ -214,11 +234,15 @@ class _NfcPaySheetState extends State<NfcPaySheet> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.storefront,
-                          size: 12, color: sel ? Colors.white : const Color(0xFF475569)),
+                          size: 12,
+                          color: sel ? Colors.white : const Color(0xFF475569)),
                       const SizedBox(width: 4),
                       Text(_merchants[i].$1,
                           style: TextStyle(
-                              fontSize: 11, color: sel ? Colors.white : const Color(0xFF475569))),
+                              fontSize: 11,
+                              color: sel
+                                  ? Colors.white
+                                  : const Color(0xFF475569))),
                     ],
                   ),
                 ),
@@ -233,14 +257,17 @@ class _NfcPaySheetState extends State<NfcPaySheet> {
               child: Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: GestureDetector(
-                  onTap: () => setState(() => _amountText = p.toStringAsFixed(0)),
+                  onTap: () =>
+                      setState(() => _amountText = p.toStringAsFixed(0)),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10)),
                     alignment: Alignment.center,
                     child: Text('RM ${p.toStringAsFixed(0)}',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF475569))),
+                        style: const TextStyle(
+                            fontSize: 12, color: Color(0xFF475569))),
                   ),
                 ),
               ),
@@ -256,16 +283,33 @@ class _NfcPaySheetState extends State<NfcPaySheet> {
           mainAxisSpacing: 6,
           crossAxisSpacing: 6,
           children: [
-            for (final k in ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del'])
+            for (final k in [
+              '1',
+              '2',
+              '3',
+              '4',
+              '5',
+              '6',
+              '7',
+              '8',
+              '9',
+              '.',
+              '0',
+              'del'
+            ])
               GestureDetector(
                 onTap: () => _pressKey(k),
                 child: Container(
-                  decoration:
-                      BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10)),
                   alignment: Alignment.center,
                   child: k == 'del'
-                      ? const Icon(Icons.backspace_outlined, size: 18, color: Color(0xFF475569))
-                      : Text(k, style: const TextStyle(fontSize: 18, color: Color(0xFF0F172A))),
+                      ? const Icon(Icons.backspace_outlined,
+                          size: 18, color: Color(0xFF475569))
+                      : Text(k,
+                          style: const TextStyle(
+                              fontSize: 18, color: Color(0xFF0F172A))),
                 ),
               ),
           ],
@@ -283,7 +327,8 @@ class _NfcPaySheetState extends State<NfcPaySheet> {
               foregroundColor: Colors.white,
               disabledBackgroundColor: const Color(0xFFCBD5E1),
               disabledForegroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
               elevation: 0,
             ),
           ),
@@ -330,7 +375,8 @@ class _NfcRippleState extends State<_NfcRipple> with TickerProviderStateMixin {
     super.initState();
     _ctrls = List.generate(
       3,
-      (_) => AnimationController(vsync: this, duration: const Duration(milliseconds: 1400)),
+      (_) => AnimationController(
+          vsync: this, duration: const Duration(milliseconds: 1400)),
     );
     for (int i = 0; i < _ctrls.length; i++) {
       Future.delayed(Duration(milliseconds: i * 467), () {
@@ -367,7 +413,8 @@ class _NfcRippleState extends State<_NfcRipple> with TickerProviderStateMixin {
                       height: 130,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFF3B82F6), width: 2),
+                        border: Border.all(
+                            color: const Color(0xFF3B82F6), width: 2),
                       ),
                     ),
                   ),
@@ -377,7 +424,8 @@ class _NfcRippleState extends State<_NfcRipple> with TickerProviderStateMixin {
           Container(
             width: 96,
             height: 96,
-            decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF2563EB)),
+            decoration: const BoxDecoration(
+                shape: BoxShape.circle, color: Color(0xFF2563EB)),
             child: const Icon(Icons.nfc, color: Colors.white, size: 40),
           ),
         ],

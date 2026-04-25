@@ -4,6 +4,8 @@ class RoutePaths {
   static const splash = '/splash';
   static const onboarding = '/onboarding';
   static const home = '/home';
-  static const pay = '/pay';
+  static const request = '/request';
+  static const requestPending = '/request/pending';
+  static const payConfirm = '/pay/confirm';
   static const receive = '/receive';
 }

@@ -42,7 +42,12 @@ class OfflineBottomBar extends StatelessWidget {
                   colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
                 ),
                 shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: Color(0x553B82F6), blurRadius: 12, offset: Offset(0, 4))],
+                boxShadow: [
+                  BoxShadow(
+                      color: Color(0x553B82F6),
+                      blurRadius: 12,
+                      offset: Offset(0, 4))
+                ],
               ),
               child: const Icon(Icons.nfc, color: Colors.white, size: 28),
             ),
@@ -60,7 +65,11 @@ class OfflineBottomBar extends StatelessWidget {
 }
 
 class _TabBtn extends StatelessWidget {
-  const _TabBtn({required this.icon, required this.label, required this.active, required this.onTap});
+  const _TabBtn(
+      {required this.icon,
+      required this.label,
+      required this.active,
+      required this.onTap});
   final IconData icon;
   final String label;
   final bool active;

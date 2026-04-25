@@ -39,7 +39,8 @@ class PromoBanner extends StatelessWidget {
 }
 
 class _BannerCard extends StatelessWidget {
-  const _BannerCard({required this.gradient, required this.title, required this.subtitle});
+  const _BannerCard(
+      {required this.gradient, required this.title, required this.subtitle});
   final LinearGradient gradient;
   final String title;
   final String subtitle;
@@ -48,14 +49,20 @@ class _BannerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(gradient: gradient, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+          gradient: gradient, borderRadius: BorderRadius.circular(20)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
           const SizedBox(height: 8),
-          Text(title, style: const TextStyle(color: Colors.white, fontSize: 13)),
-          Text(subtitle, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+          Text(title,
+              style: const TextStyle(color: Colors.white, fontSize: 13)),
+          Text(subtitle,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700)),
         ],
       ),
     );

@@ -14,16 +14,19 @@ class OfflinePayPolicy {
   AmountValidationResult validateAmountText(String text) {
     final normalized = text.trim();
     if (normalized.isEmpty) {
-      return const AmountValidationResult.invalid('Enter an amount to continue.');
+      return const AmountValidationResult.invalid(
+          'Enter an amount to continue.');
     }
 
     final amount = double.tryParse(normalized);
     if (amount == null || amount.isNaN || amount.isInfinite) {
-      return const AmountValidationResult.invalid('Enter a valid numeric amount.');
+      return const AmountValidationResult.invalid(
+          'Enter a valid numeric amount.');
     }
 
     if (amount <= 0) {
-      return const AmountValidationResult.invalid('Amount must be greater than zero.');
+      return const AmountValidationResult.invalid(
+          'Amount must be greater than zero.');
     }
 
     final cents = (amount * 100).round();
@@ -41,7 +44,8 @@ class OfflinePayPolicy {
     required DateTime createdAt,
     String? receiverKid,
   }) {
-    final txId = '01${createdAt.millisecondsSinceEpoch}${amountCents.toString().padLeft(4, '0')}';
+    final txId =
+        '01${createdAt.millisecondsSinceEpoch}${amountCents.toString().padLeft(4, '0')}';
     return OfflineTransfer(
       txId: txId,
       amountCents: amountCents,

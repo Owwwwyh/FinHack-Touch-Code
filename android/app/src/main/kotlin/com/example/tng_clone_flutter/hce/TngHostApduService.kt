@@ -9,12 +9,6 @@ import android.util.Log
 import com.example.tng_clone_flutter.MainActivity
 import com.example.tng_clone_flutter.keystore.SigningKeyManager
 
-/**
- * HCE service implementing the TNG offline payment receiver role.
- *
- * State machine:
- *   IDLE → (SELECT) → SELECTED → (PUT-DATA chunks) → RECEIVING → READY_FOR_ACK → (GET-ACK) → IDLE
- */
 class TngHostApduService : HostApduService() {
 
     companion object {
@@ -22,7 +16,13 @@ class TngHostApduService : HostApduService() {
         private const val KEY_ALIAS = "tng_signing_v1"
     }
 
-    private enum class State { IDLE, SELECTED, RECEIVING, READY_FOR_ACK }
+    private enum class State {
+        IDLE,
+        SELECTED,
+        RECEIVING_REQUEST,
+        RECEIVING_TOKEN,
+        READY_FOR_ACK,
+    }
 
     private var state = State.IDLE
     private val chunkBuffer = mutableMapOf<Int, ByteArray>()
@@ -35,7 +35,10 @@ class TngHostApduService : HostApduService() {
 
         return when {
             ApduHandler.isSelectAid(apdu) -> handleSelect()
-            ApduHandler.isPutData(apdu) && (state == State.SELECTED || state == State.RECEIVING) -> handlePutData(apdu)
+            ApduHandler.isPutRequest(apdu) &&
+                (state == State.SELECTED || state == State.RECEIVING_REQUEST) -> handlePutRequest(apdu)
+            ApduHandler.isPutData(apdu) &&
+                (state == State.SELECTED || state == State.RECEIVING_TOKEN) -> handlePutData(apdu)
             ApduHandler.isGetAck(apdu) && state == State.READY_FOR_ACK -> handleGetAck()
             else -> {
                 Log.w(TAG, "Unexpected APDU in state $state")
@@ -52,12 +55,38 @@ class TngHostApduService : HostApduService() {
                 Log.w(TAG, "No signing key found for alias $KEY_ALIAS")
                 return ApduHandler.SW_NOT_FOUND
             }
-            val pub = keyManager.getPublicKey(KEY_ALIAS)
+            val publicKey = keyManager.getPublicKey(KEY_ALIAS)
             state = State.SELECTED
-            Log.d(TAG, "SELECT handled; sending pub key (${pub.size}B)")
-            ApduHandler.buildSelectResponse(pub)
+            ApduHandler.buildSelectResponse(publicKey)
         } catch (e: Exception) {
             Log.e(TAG, "SELECT failed: ${e.message}", e)
+            ApduHandler.SW_ERROR
+        }
+    }
+
+    private fun handlePutRequest(apdu: ByteArray): ByteArray {
+        val idx = ApduHandler.getChunkIndex(apdu)
+        val total = ApduHandler.getChunkTotal(apdu)
+        val data = ApduHandler.getChunkData(apdu)
+
+        if (state == State.SELECTED) {
+            expectedChunks = total
+            state = State.RECEIVING_REQUEST
+        }
+
+        chunkBuffer[idx] = data
+        if (chunkBuffer.size < expectedChunks) {
+            return ApduHandler.SW_OK
+        }
+
+        return try {
+            val requestJson = assembleChunks()
+            notifyPaymentRequest(requestJson)
+            reset()
+            ApduHandler.SW_OK
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to process payment request: ${e.message}", e)
+            reset()
             ApduHandler.SW_ERROR
         }
     }
@@ -69,72 +98,83 @@ class TngHostApduService : HostApduService() {
 
         if (state == State.SELECTED) {
             expectedChunks = total
-            state = State.RECEIVING
+            state = State.RECEIVING_TOKEN
         }
 
         chunkBuffer[idx] = data
-        Log.d(TAG, "PUT-DATA chunk $idx/$total (${data.size}B)")
-
         if (chunkBuffer.size < expectedChunks) {
             return ApduHandler.SW_OK
         }
 
         return try {
-            val allBytes = (0 until expectedChunks)
-                .flatMap { chunkBuffer[it]?.toList() ?: emptyList() }
-                .toByteArray()
+            val allBytes = assembleChunks().toByteArray(Charsets.UTF_8)
             val jws = allBytes.toString(Charsets.UTF_8)
-            Log.d(TAG, "JWS reassembled: ${jws.length} chars")
 
             val keyManager = SigningKeyManager.getInstance(this)
             cachedAckSig = keyManager.signSha256(KEY_ALIAS, allBytes)
             state = State.READY_FOR_ACK
 
-            notifyFlutter(jws, cachedAckSig!!)
+            notifyReceivedToken(jws, cachedAckSig!!)
             ApduHandler.SW_LAST_CHUNK
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to process received JWS: ${e.message}", e)
+            Log.e(TAG, "Failed to process JWS: ${e.message}", e)
             reset()
             ApduHandler.SW_ERROR
         }
     }
 
     private fun handleGetAck(): ByteArray {
-        val sig = cachedAckSig
-        return if (sig != null && sig.size == 64) {
-            Log.d(TAG, "GET-ACK: returning ack signature")
-            val response = ApduHandler.buildAckResponse(sig)
+        val ackSignature = cachedAckSig
+        return if (ackSignature != null && ackSignature.size == 64) {
+            val response = ApduHandler.buildAckResponse(ackSignature)
             reset()
             response
         } else {
-            Log.e(TAG, "GET-ACK: ack signature unavailable")
             ApduHandler.SW_ERROR
         }
     }
 
-    private fun notifyFlutter(jws: String, ackSig: ByteArray) {
+    private fun notifyPaymentRequest(requestJson: String) {
+        mainHandler.post {
+            val sink = MainActivity.paymentRequestEventSink
+            if (sink != null) {
+                sink.success(mapOf("requestJson" to requestJson))
+            } else {
+                Log.w(TAG, "No payment request sink; request event dropped")
+            }
+        }
+    }
+
+    private fun notifyReceivedToken(jws: String, ackSig: ByteArray) {
         mainHandler.post {
             val sink = MainActivity.inboxEventSink
             if (sink != null) {
-                val event = mapOf(
-                    "jws" to jws,
-                    "ackSig" to Base64.encodeToString(
-                        ackSig,
-                        Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING,
+                sink.success(
+                    mapOf(
+                        "jws" to jws,
+                        "ackSig" to Base64.encodeToString(
+                            ackSig,
+                            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING,
+                        ),
                     ),
                 )
-                sink.success(event)
             } else {
-                Log.w(TAG, "No Flutter inbox sink; token event dropped")
+                Log.w(TAG, "No inbox sink; token event dropped")
             }
         }
     }
 
     override fun onDeactivated(reason: Int) {
-        Log.d(TAG, "NFC deactivated: reason=$reason")
         if (state != State.READY_FOR_ACK) {
             reset()
         }
+    }
+
+    private fun assembleChunks(): String {
+        return (0 until expectedChunks)
+            .flatMap { chunkBuffer[it]?.toList() ?: emptyList() }
+            .toByteArray()
+            .toString(Charsets.UTF_8)
     }
 
     private fun reset() {

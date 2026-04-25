@@ -4,7 +4,7 @@ description: Work breakdown by track, milestones, parallelizable agent tasks wit
 owner: PM
 status: ready
 depends-on: [00-overview, 01-architecture, 03-token-protocol, 04-credit-score-ml, 05-aws-services, 06-alibaba-services, 07-mobile-app, 08-backend-api, 09-data-model, 10-security-threat-model, 13-deployment]
-last-updated: 2026-04-25
+last-updated: 2026-04-26
 ---
 
 # Build Tasks
@@ -79,7 +79,7 @@ returns valid JWKS.
 1. `flutter create mobile/`, configure as in §2.
 2. Add packages from §3.
 3. Set up Riverpod, go_router, theme, splash, onboarding placeholder.
-4. Wire MaterialApp with empty Home/Pay/Receive routes.
+4. Wire MaterialApp with empty Home/Request/PayConfirm/Receive routes.
 5. Generate Drift code, create empty schemas (Outbox, Inbox, BalanceCache).
 6. Configure Android `minSdk=26`, NFC + biometric permissions, HCE service stub.
 **DoD:** `flutter run` shows splash → onboarding → home; APK built; HCE service visible
@@ -135,11 +135,12 @@ in Android NFC settings.
 **Tasks:**
 1. Implement `SigningKeyManager.kt` and platform channel.
 2. Implement `JwsSigner` in Dart.
-3. Implement HCE service `TngHostApduService.kt` with chunk reassembly.
-4. Implement Pay screen with amount entry → sign → NFC send.
-5. Implement Receive screen with HCE state.
-6. Pair-test on two devices; show inbox/outbox rows.
-**DoD:** Two phones pair successfully; outbox/inbox rows visible.
+3. Implement HCE service `TngHostApduService.kt` with `PUT-REQUEST` and `PUT-DATA` chunk reassembly.
+4. Implement Request Payment screen for tap 1 and Request Pending countdown screen for the merchant.
+5. Implement Pay Confirm screen that auto-opens on tap 1, signs after authorization, and drives tap 2.
+6. Implement Receive inbox/receipt state for the merchant after tap 2.
+7. Pair-test on two devices; show request delivery, outbox/inbox rows, and ack-signature capture.
+**DoD:** Two phones complete the full two-tap flow successfully; Pay Confirm opens automatically after tap 1; outbox/inbox rows visible after tap 2.
 
 ### `agent:mobile-3` — TF Lite scorer + offline state
 **Spec:** [docs/04-credit-score-ml.md §8](04-credit-score-ml.md), [docs/07-mobile-app.md §5](07-mobile-app.md)

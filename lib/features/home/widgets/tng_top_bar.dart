@@ -19,7 +19,8 @@ class TngTopBar extends StatelessWidget {
             alignment: Alignment.center,
             child: const Text(
               'A',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
             ),
           ),
           const SizedBox(width: 10),
@@ -32,11 +33,13 @@ class TngTopBar extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.search, color: Colors.white.withOpacity(0.8), size: 16),
+                  Icon(Icons.search,
+                      color: Colors.white.withOpacity(0.8), size: 16),
                   const SizedBox(width: 8),
                   Text(
                     'Search services & merchants',
-                    style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13),
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.8), fontSize: 13),
                   ),
                 ],
               ),
@@ -46,7 +49,8 @@ class TngTopBar extends StatelessWidget {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              const Icon(Icons.notifications_outlined, color: Colors.white, size: 24),
+              const Icon(Icons.notifications_outlined,
+                  color: Colors.white, size: 24),
               Positioned(
                 top: -2,
                 right: -2,

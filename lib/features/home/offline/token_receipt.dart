@@ -4,7 +4,8 @@ import 'package:flutter/services.dart';
 import 'nfc_pay_sheet.dart';
 
 class TokenReceiptScreen extends StatelessWidget {
-  const TokenReceiptScreen({super.key, required this.token, required this.onDone});
+  const TokenReceiptScreen(
+      {super.key, required this.token, required this.onDone});
   final OfflineToken token;
   final VoidCallback onDone;
 
@@ -43,7 +44,8 @@ class TokenReceiptScreen extends StatelessWidget {
                       color: Colors.white.withOpacity(0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.check_circle, color: Colors.white, size: 40),
+                    child: const Icon(Icons.check_circle,
+                        color: Colors.white, size: 40),
                   ),
                   const SizedBox(height: 12),
                   const Text('Offline Payment Authorized',
@@ -110,7 +112,8 @@ class TokenReceiptScreen extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.lock_outline, color: Color(0xFF2563EB), size: 18),
+                              const Icon(Icons.lock_outline,
+                                  color: Color(0xFF2563EB), size: 18),
                               const SizedBox(width: 6),
                               const Text('Encrypted Token',
                                   style: TextStyle(
@@ -119,12 +122,15 @@ class TokenReceiptScreen extends StatelessWidget {
                                       color: Color(0xFF0F172A))),
                               const Spacer(),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
                                     color: const Color(0xFFECFDF5),
                                     borderRadius: BorderRadius.circular(20)),
                                 child: const Text('Signed · Ed25519',
-                                    style: TextStyle(fontSize: 10, color: Color(0xFF059669))),
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFF059669))),
                               ),
                             ],
                           ),
@@ -148,21 +154,27 @@ class TokenReceiptScreen extends StatelessWidget {
                           const Text(
                             'This token has been transferred to the merchant via NFC as proof of payment. '
                             'Once either device is online, TNG settles the balance.',
-                            style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8), height: 1.5),
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF94A3B8),
+                                height: 1.5),
                           ),
                           const SizedBox(height: 10),
                           Row(
                             children: [
                               Expanded(
                                 child: OutlinedButton.icon(
-                                  onPressed: () => Clipboard.setData(ClipboardData(text: json)),
+                                  onPressed: () => Clipboard.setData(
+                                      ClipboardData(text: json)),
                                   icon: const Icon(Icons.copy, size: 16),
                                   label: const Text('Copy'),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: const Color(0xFF475569),
-                                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                                    side: const BorderSide(
+                                        color: Color(0xFFE2E8F0)),
                                     shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12)),
+                                        borderRadius:
+                                            BorderRadius.circular(12)),
                                   ),
                                 ),
                               ),
@@ -174,9 +186,11 @@ class TokenReceiptScreen extends StatelessWidget {
                                   label: const Text('Share'),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: const Color(0xFF475569),
-                                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                                    side: const BorderSide(
+                                        color: Color(0xFFE2E8F0)),
                                     shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12)),
+                                        borderRadius:
+                                            BorderRadius.circular(12)),
                                   ),
                                 ),
                               ),
@@ -195,13 +209,15 @@ class TokenReceiptScreen extends StatelessWidget {
                       ),
                       child: RichText(
                         text: TextSpan(
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF1E3A5F)),
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0xFF1E3A5F)),
                           children: [
                             const TextSpan(text: 'Status: '),
                             const TextSpan(
                               text: 'Pending Settlement',
                               style: TextStyle(
-                                  color: Color(0xFF2563EB), fontWeight: FontWeight.w600),
+                                  color: Color(0xFF2563EB),
+                                  fontWeight: FontWeight.w600),
                             ),
                             TextSpan(
                                 text:
@@ -224,10 +240,13 @@ class TokenReceiptScreen extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0066FF),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                     elevation: 0,
                   ),
-                  child: const Text('Done', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  child: const Text('Done',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                 ),
               ),
             ),
@@ -242,7 +261,9 @@ class TokenReceiptScreen extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)
+          ],
         ),
         child: child,
       );
@@ -290,15 +311,21 @@ class _DetailRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(topLabel, style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
-                Text(mainText, style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A))),
+                Text(topLabel,
+                    style: const TextStyle(
+                        fontSize: 10, color: Color(0xFF94A3B8))),
+                Text(mainText,
+                    style: const TextStyle(
+                        fontSize: 13, color: Color(0xFF0F172A))),
               ],
             ),
           ),
           if (sideText.isNotEmpty)
             Text(sideText,
                 style: const TextStyle(
-                    fontSize: 10, fontFamily: 'monospace', color: Color(0xFF94A3B8))),
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    color: Color(0xFF94A3B8))),
         ],
       ),
     );

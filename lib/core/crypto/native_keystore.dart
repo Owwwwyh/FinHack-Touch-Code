@@ -39,14 +39,13 @@ class NativeKeystore {
   /// [alias]: Key alias
   /// [data]: Data to sign
   /// Returns: Signature bytes
-  static Future<Uint8List> sign(
-    String alias,
-    Uint8List data,
-  ) async {
+  static Future<Uint8List> sign(String alias, Uint8List data,
+      {int amountCents = 0}) async {
     try {
       final result = await platform.invokeMethod<Uint8List>('sign', {
         'alias': alias,
         'data': data,
+        'amountCents': amountCents,
       });
 
       if (result == null) {

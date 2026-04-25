@@ -4,7 +4,8 @@ class ServicesGrid extends StatelessWidget {
   const ServicesGrid({super.key});
 
   static const _services = [
-    _Svc(Icons.directions_car, 'Toll & Parking', Color(0xFF2563EB), Color(0xFFEFF6FF)),
+    _Svc(Icons.directions_car, 'Toll & Parking', Color(0xFF2563EB),
+        Color(0xFFEFF6FF)),
     _Svc(Icons.bolt, 'Electricity', Color(0xFFD97706), Color(0xFFFFFBEB)),
     _Svc(Icons.smartphone, 'Prepaid', Color(0xFF059669), Color(0xFFECFDF5)),
     _Svc(Icons.flight, 'Flights', Color(0xFF0284C7), Color(0xFFE0F2FE)),
@@ -26,7 +27,9 @@ class ServicesGrid extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -35,10 +38,16 @@ class ServicesGrid extends StatelessWidget {
             children: [
               const Text(
                 'All Services',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0F172A)),
               ),
               const Spacer(),
-              Text('See all', style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.primary)),
+              Text('See all',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.primary)),
             ],
           ),
           const SizedBox(height: 14),
@@ -77,7 +86,8 @@ class _SvcTile extends StatelessWidget {
         Container(
           width: 48,
           height: 48,
-          decoration: BoxDecoration(color: svc.bg, borderRadius: BorderRadius.circular(14)),
+          decoration: BoxDecoration(
+              color: svc.bg, borderRadius: BorderRadius.circular(14)),
           child: Icon(svc.icon, color: svc.fg, size: 20),
         ),
         const SizedBox(height: 5),

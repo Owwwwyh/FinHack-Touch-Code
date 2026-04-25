@@ -3,8 +3,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/home/home_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
-import '../../features/pay/pay_screen.dart';
+import '../../features/pay/pay_confirm_screen.dart';
 import '../../features/receive/receive_screen.dart';
+import '../../features/request/request_pending_screen.dart';
+import '../../features/request/request_screen.dart';
 import '../../features/splash/splash_screen.dart';
 import 'route_paths.dart';
 
@@ -25,8 +27,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const HomeScreen(),
       ),
       GoRoute(
-        path: RoutePaths.pay,
-        builder: (context, state) => const PayScreen(),
+        path: RoutePaths.request,
+        builder: (context, state) => const RequestScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.requestPending,
+        builder: (context, state) => const RequestPendingScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.payConfirm,
+        builder: (context, state) => const PayConfirmScreen(),
       ),
       GoRoute(
         path: RoutePaths.receive,

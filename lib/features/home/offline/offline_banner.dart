@@ -19,8 +19,10 @@ class OfflineBanner extends StatelessWidget {
           Container(
             width: 34,
             height: 34,
-            decoration: const BoxDecoration(color: Color(0xFFFEF3C7), shape: BoxShape.circle),
-            child: const Icon(Icons.wifi_off, color: Color(0xFFB45309), size: 16),
+            decoration: const BoxDecoration(
+                color: Color(0xFFFEF3C7), shape: BoxShape.circle),
+            child:
+                const Icon(Icons.wifi_off, color: Color(0xFFB45309), size: 16),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -29,13 +31,17 @@ class OfflineBanner extends StatelessWidget {
               children: [
                 const Text(
                   "You're offline",
-                  style: TextStyle(fontSize: 13, color: Color(0xFF78350F), fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF78350F),
+                      fontWeight: FontWeight.w500),
                 ),
                 Text(
                   pendingCount > 0
                       ? '$pendingCount transaction${pendingCount > 1 ? 's' : ''} waiting to sync'
                       : 'NFC payments still work',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+                  style:
+                      const TextStyle(fontSize: 11, color: Color(0xFFB45309)),
                 ),
               ],
             ),

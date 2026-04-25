@@ -3,7 +3,6 @@ package com.example.tng_clone_flutter
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.IsoDep
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Base64
@@ -21,9 +20,12 @@ class MainActivity : FlutterActivity() {
         private const val TAG = "MainActivity"
         private const val KEYSTORE_CHANNEL = "com.tng.finhack/keystore"
         private const val NFC_CHANNEL = "com.tng.finhack/nfc"
+        private const val PAYMENT_REQUESTS_CHANNEL = "com.tng.finhack/payment_requests"
         private const val INBOX_CHANNEL = "com.tng.finhack/inbox"
 
-        /** Written by EventChannel StreamHandler; read by TngHostApduService. */
+        @Volatile
+        var paymentRequestEventSink: EventChannel.EventSink? = null
+
         @Volatile
         var inboxEventSink: EventChannel.EventSink? = null
     }
@@ -36,10 +38,9 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         setupKeystoreChannel(flutterEngine)
         setupNfcChannel(flutterEngine)
+        setupPaymentRequestChannel(flutterEngine)
         setupInboxChannel(flutterEngine)
     }
-
-    // ── Keystore channel ──────────────────────────────────────────────────────
 
     private fun setupKeystoreChannel(flutterEngine: FlutterEngine) {
         val keyManager = SigningKeyManager.getInstance(this)
@@ -53,29 +54,37 @@ class MainActivity : FlutterActivity() {
                             result.success(keyManager.generateKeyPair(alias, challenge))
                         }
                         "sign" -> {
-                            val alias = call.argument<String>("alias") ?: throw IllegalArgumentException("alias required")
-                            val data = call.argument<ByteArray>("data") ?: throw IllegalArgumentException("data required")
+                            val alias = call.argument<String>("alias")
+                                ?: throw IllegalArgumentException("alias required")
+                            val data = call.argument<ByteArray>("data")
+                                ?: throw IllegalArgumentException("data required")
                             val amountCents = call.argument<Int>("amountCents") ?: 0
                             result.success(keyManager.sign(alias, data, amountCents))
                         }
                         "getPublicKey" -> {
-                            val alias = call.argument<String>("alias") ?: throw IllegalArgumentException("alias required")
+                            val alias = call.argument<String>("alias")
+                                ?: throw IllegalArgumentException("alias required")
                             result.success(keyManager.getPublicKey(alias))
                         }
                         "keyExists" -> {
-                            val alias = call.argument<String>("alias") ?: throw IllegalArgumentException("alias required")
+                            val alias = call.argument<String>("alias")
+                                ?: throw IllegalArgumentException("alias required")
                             result.success(keyManager.keyExists(alias))
                         }
                         "listKeys" -> result.success(keyManager.listKeys())
                         "deleteKey" -> {
-                            val alias = call.argument<String>("alias") ?: throw IllegalArgumentException("alias required")
+                            val alias = call.argument<String>("alias")
+                                ?: throw IllegalArgumentException("alias required")
                             keyManager.deleteKey(alias)
                             result.success(null)
                         }
                         "getAttestationCertificateChain" -> {
-                            val alias = call.argument<String>("alias") ?: throw IllegalArgumentException("alias required")
+                            val alias = call.argument<String>("alias")
+                                ?: throw IllegalArgumentException("alias required")
                             val chain = keyManager.getAttestationCertificateChain(alias)
-                            result.success(chain.map { Base64.encodeToString(it.encoded, Base64.NO_WRAP) })
+                            result.success(
+                                chain.map { Base64.encodeToString(it.encoded, Base64.NO_WRAP) },
+                            )
                         }
                         else -> result.notImplemented()
                     }
@@ -86,19 +95,28 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    // ── NFC reader-mode channel ───────────────────────────────────────────────
-
     private fun setupNfcChannel(flutterEngine: FlutterEngine) {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NFC_CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
-                    "selectAndGetReceiverPub" -> selectAndGetReceiverPub(result)
-                    "sendJwsAndGetAck" -> {
+                    "sendPaymentRequest" -> {
+                        val requestJson = call.argument<String>("requestJson") ?: run {
+                            result.error("NFC_ERROR", "requestJson argument missing", null)
+                            return@setMethodCallHandler
+                        }
+                        sendPaymentRequest(requestJson, result)
+                    }
+                    "completePaymentTap" -> {
                         val jws = call.argument<String>("jws") ?: run {
                             result.error("NFC_ERROR", "jws argument missing", null)
                             return@setMethodCallHandler
                         }
-                        sendJwsAndGetAck(jws, result)
+                        val expectedReceiverPublicKey =
+                            call.argument<ByteArray>("expectedReceiverPublicKey") ?: run {
+                                result.error("NFC_ERROR", "expectedReceiverPublicKey missing", null)
+                                return@setMethodCallHandler
+                            }
+                        completePaymentTap(jws, expectedReceiverPublicKey, result)
                     }
                     "stopReaderMode" -> {
                         stopReaderMode()
@@ -109,17 +127,60 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    private fun selectAndGetReceiverPub(result: MethodChannel.Result) {
-        val adapter = NfcAdapter.getDefaultAdapter(this)
-        if (adapter == null) {
-            result.error("NFC_NOT_AVAILABLE", "NFC adapter not found", null)
-            return
-        }
-        if (!adapter.isEnabled) {
-            result.error("NFC_DISABLED", "NFC is disabled", null)
-            return
-        }
+    private fun sendPaymentRequest(requestJson: String, result: MethodChannel.Result) {
+        val adapter = getAdapterOrError(result) ?: return
+        pendingNfcResult = result
 
+        adapter.enableReaderMode(
+            this,
+            { tag ->
+                val isoDep = IsoDep.get(tag)
+                if (isoDep == null) {
+                    postError("NFC_ERROR", "Tag is not IsoDep")
+                    return@enableReaderMode
+                }
+                activeIsoDep = isoDep
+                Thread {
+                    try {
+                        isoDep.connect()
+                        isoDep.timeout = 5000
+
+                        val payerPublicKey = selectPublicKey(isoDep)
+                        val requestBytes = requestJson.toByteArray(Charsets.UTF_8)
+                        val chunks = requestBytes.toList()
+                            .chunked(ApduHandler.CHUNK_SIZE) { it.toByteArray() }
+                        val total = chunks.size
+
+                        for ((index, chunk) in chunks.withIndex()) {
+                            val response = isoDep.transceive(
+                                ApduHandler.buildPutRequestApdu(index, total, chunk),
+                            )
+                            ensureSuccessStatus(response, "PUT-REQUEST chunk $index")
+                        }
+
+                        mainHandler.post {
+                            pendingNfcResult?.success(payerPublicKey)
+                            pendingNfcResult = null
+                        }
+                    } catch (e: Exception) {
+                        postError("NFC_ERROR", e.message ?: "Unknown NFC error")
+                    } finally {
+                        cleanupReaderMode()
+                    }
+                }.start()
+            },
+            NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or
+                NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
+            null,
+        )
+    }
+
+    private fun completePaymentTap(
+        jws: String,
+        expectedReceiverPublicKey: ByteArray,
+        result: MethodChannel.Result,
+    ) {
+        val adapter = getAdapterOrError(result) ?: return
         pendingNfcResult = result
 
         adapter.enableReaderMode(
@@ -130,32 +191,49 @@ class MainActivity : FlutterActivity() {
                     postError("NFC_ERROR", "Tag is not IsoDep")
                     return@enableReaderMode
                 }
-                try {
-                    isoDep.connect()
-                    isoDep.timeout = 5000
+                activeIsoDep = isoDep
+                Thread {
+                    try {
+                        isoDep.connect()
+                        isoDep.timeout = 5000
 
-                    val selectApdu = ApduHandler.buildSelectApdu()
-                    val response = isoDep.transceive(selectApdu)
+                        val receiverPublicKey = selectPublicKey(isoDep)
+                        if (!receiverPublicKey.contentEquals(expectedReceiverPublicKey)) {
+                            throw IllegalStateException("Receiver public key mismatch on tap 2")
+                        }
 
-                    // Expect: <32B pub key> 90 00
-                    if (response.size >= 34 &&
-                        response[response.size - 2] == 0x90.toByte() &&
-                        response.last() == 0x00.toByte()
-                    ) {
-                        val receiverPub = response.copyOf(response.size - 2)
-                        activeIsoDep = isoDep
+                        val jwsBytes = jws.toByteArray(Charsets.UTF_8)
+                        val chunks = jwsBytes.toList()
+                            .chunked(ApduHandler.CHUNK_SIZE) { it.toByteArray() }
+                        val total = chunks.size
+
+                        for ((index, chunk) in chunks.withIndex()) {
+                            val response = isoDep.transceive(
+                                ApduHandler.buildPutDataApdu(index, total, chunk),
+                            )
+                            ensureSuccessStatus(response, "PUT-DATA chunk $index")
+                        }
+
+                        val ackResponse = isoDep.transceive(ApduHandler.buildGetAckApdu())
+                        if (ackResponse.size < 66 ||
+                            ackResponse[ackResponse.size - 2] != 0x90.toByte() ||
+                            ackResponse.last() != 0x00.toByte()
+                        ) {
+                            throw IllegalStateException("Invalid GET-ACK response")
+                        }
+
+                        val ackSignature = ackResponse.copyOf(64)
                         mainHandler.post {
-                            pendingNfcResult?.success(receiverPub)
+                            pendingNfcResult?.success(ackSignature)
                             pendingNfcResult = null
                         }
-                    } else {
-                        isoDep.close()
-                        postError("NFC_ERROR", "SELECT response invalid: ${response.size}B")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Tap 2 failed: ${e.message}", e)
+                        postError("NFC_ERROR", e.message ?: "Unknown NFC error")
+                    } finally {
+                        cleanupReaderMode()
                     }
-                } catch (e: Exception) {
-                    runCatching { isoDep.close() }
-                    postError("NFC_ERROR", e.message ?: "Unknown error")
-                }
+                }.start()
             },
             NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or
                 NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
@@ -163,60 +241,49 @@ class MainActivity : FlutterActivity() {
         )
     }
 
-    private fun sendJwsAndGetAck(jws: String, result: MethodChannel.Result) {
-        val isoDep = activeIsoDep
-        if (isoDep == null || !isoDep.isConnected) {
-            result.error("NFC_ERROR", "No active NFC connection; call selectAndGetReceiverPub first", null)
-            return
+    private fun getAdapterOrError(result: MethodChannel.Result): NfcAdapter? {
+        val adapter = NfcAdapter.getDefaultAdapter(this)
+        if (adapter == null) {
+            result.error("NFC_NOT_AVAILABLE", "NFC adapter not found", null)
+            return null
         }
+        if (!adapter.isEnabled) {
+            result.error("NFC_DISABLED", "NFC is disabled", null)
+            return null
+        }
+        return adapter
+    }
 
-        Thread {
-            try {
-                val jwsBytes = jws.toByteArray(Charsets.UTF_8)
-                val chunks = jwsBytes.toList().chunked(ApduHandler.CHUNK_SIZE) { it.toByteArray() }
-                val total = chunks.size
+    private fun selectPublicKey(isoDep: IsoDep): ByteArray {
+        val response = isoDep.transceive(ApduHandler.buildSelectApdu())
+        if (response.size < 34 ||
+            response[response.size - 2] != 0x90.toByte() ||
+            response.last() != 0x00.toByte()
+        ) {
+            throw IllegalStateException("SELECT response invalid: ${response.size} bytes")
+        }
+        return response.copyOf(response.size - 2)
+    }
 
-                for ((idx, chunk) in chunks.withIndex()) {
-                    val apdu = ApduHandler.buildPutDataApdu(idx, total, chunk)
-                    val resp = isoDep.transceive(apdu)
-                    val sw1 = resp.getOrElse(resp.size - 2) { 0.toByte() }
-                    val sw2 = resp.lastOrNull() ?: 0.toByte()
-                    if (sw1 != 0x90.toByte()) {
-                        throw Exception("PUT-DATA chunk $idx failed: SW=${"%02X%02X".format(sw1, sw2)}")
-                    }
-                    Log.d(TAG, "Sent chunk $idx/$total")
-                }
-
-                val ackApdu = ApduHandler.buildGetAckApdu()
-                val ackResp = isoDep.transceive(ackApdu)
-
-                // Expect: <64B sig> 90 00
-                if (ackResp.size >= 66 &&
-                    ackResp[ackResp.size - 2] == 0x90.toByte() &&
-                    ackResp.last() == 0x00.toByte()
-                ) {
-                    val ackSig = ackResp.copyOf(64)
-                    mainHandler.post { result.success(ackSig) }
-                } else {
-                    throw Exception("GET-ACK response invalid: ${ackResp.size}B")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "NFC send failed: ${e.message}", e)
-                mainHandler.post { result.error("NFC_ERROR", e.message, null) }
-            } finally {
-                runCatching { isoDep.close() }
-                activeIsoDep = null
-                NfcAdapter.getDefaultAdapter(this)?.disableReaderMode(this)
-            }
-        }.start()
+    private fun ensureSuccessStatus(response: ByteArray, operation: String) {
+        val sw1 = response.getOrElse(response.size - 2) { 0.toByte() }
+        val sw2 = response.lastOrNull() ?: 0.toByte()
+        if (sw1 != 0x90.toByte()) {
+            throw IllegalStateException("$operation failed: SW=${"%02X%02X".format(sw1, sw2)}")
+        }
     }
 
     private fun stopReaderMode() {
         NfcAdapter.getDefaultAdapter(this)?.disableReaderMode(this)
-        runCatching { activeIsoDep?.close() }
-        activeIsoDep = null
+        cleanupReaderMode()
         pendingNfcResult?.error("NFC_CANCELLED", "Reader mode stopped", null)
         pendingNfcResult = null
+    }
+
+    private fun cleanupReaderMode() {
+        runCatching { activeIsoDep?.close() }
+        activeIsoDep = null
+        NfcAdapter.getDefaultAdapter(this)?.disableReaderMode(this)
     }
 
     private fun postError(code: String, message: String) {
@@ -226,7 +293,20 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    // ── Inbox EventChannel ────────────────────────────────────────────────────
+    private fun setupPaymentRequestChannel(flutterEngine: FlutterEngine) {
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, PAYMENT_REQUESTS_CHANNEL)
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    paymentRequestEventSink = events
+                    Log.d(TAG, "Payment request EventChannel: Flutter is listening")
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    paymentRequestEventSink = null
+                    Log.d(TAG, "Payment request EventChannel: Flutter cancelled")
+                }
+            })
+    }
 
     private fun setupInboxChannel(flutterEngine: FlutterEngine) {
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, INBOX_CHANNEL)

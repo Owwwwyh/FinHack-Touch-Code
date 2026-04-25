@@ -5,10 +5,12 @@ package com.example.tng_clone_flutter.hce
  *
  * AID: F0544E47504159  (7 bytes: 0xF0 + ASCII "TNGPAY")
  *
- * Exchange sequence (Sender = reader, Receiver = HCE):
- *   SELECT AID          → receiver pub key (32B) + 9000
- *   PUT-DATA chunks     → 9000 (more) / 9001 (last chunk)
- *   GET-ACK             → ack signature (64B) + 9000
+ * Exchange sequence:
+ *   Tap 1: SELECT AID → payer pub key (32B) + 9000
+ *          PUT-REQUEST chunks → 9000
+ *   Tap 2: SELECT AID → merchant pub key (32B) + 9000
+ *          PUT-DATA chunks → 9000 (more) / 9001 (last chunk)
+ *          GET-ACK → ack signature (64B) + 9000
  */
 object ApduHandler {
 
@@ -27,6 +29,7 @@ object ApduHandler {
     private const val CLA_ISO: Byte = 0x00
     private const val INS_SELECT: Byte = 0xA4.toByte()
     private const val CLA_TNG: Byte = 0x80.toByte()
+    private const val INS_PUT_REQUEST: Byte = 0xE0.toByte()
     private const val INS_PUT_DATA: Byte = 0xD0.toByte()
     private const val INS_GET_ACK: Byte = 0xC0.toByte()
 
@@ -44,6 +47,9 @@ object ApduHandler {
         val data = apdu.copyOfRange(5, 5 + lc)
         return data.contentEquals(AID)
     }
+
+    fun isPutRequest(apdu: ByteArray): Boolean =
+        apdu.size >= 5 && apdu[0] == CLA_TNG && apdu[1] == INS_PUT_REQUEST
 
     fun isPutData(apdu: ByteArray): Boolean =
         apdu.size >= 5 && apdu[0] == CLA_TNG && apdu[1] == INS_PUT_DATA
@@ -69,13 +75,11 @@ object ApduHandler {
     fun buildSelectApdu(): ByteArray =
         byteArrayOf(CLA_ISO, INS_SELECT, 0x04, 0x00, AID.size.toByte()) + AID + byteArrayOf(0x00)
 
-    /**
-     * Builds a PUT-DATA command for one chunk.
-     * 80 D0 <chunkIdx> <totalChunks> <Lc> <data>
-     */
+    fun buildPutRequestApdu(chunkIdx: Int, totalChunks: Int, data: ByteArray): ByteArray =
+        buildPutApdu(INS_PUT_REQUEST, chunkIdx, totalChunks, data)
+
     fun buildPutDataApdu(chunkIdx: Int, totalChunks: Int, data: ByteArray): ByteArray {
-        require(data.size <= CHUNK_SIZE) { "Chunk exceeds max size: ${data.size}" }
-        return byteArrayOf(CLA_TNG, INS_PUT_DATA, chunkIdx.toByte(), totalChunks.toByte(), data.size.toByte()) + data
+        return buildPutApdu(INS_PUT_DATA, chunkIdx, totalChunks, data)
     }
 
     /** Builds the GET-ACK command: 80 C0 00 00 40 (Le=64 bytes expected) */
@@ -94,6 +98,22 @@ object ApduHandler {
     fun buildAckResponse(signature64: ByteArray): ByteArray {
         require(signature64.size == 64) { "Ack signature must be 64 bytes" }
         return signature64 + SW_OK
+    }
+
+    private fun buildPutApdu(
+        instruction: Byte,
+        chunkIdx: Int,
+        totalChunks: Int,
+        data: ByteArray,
+    ): ByteArray {
+        require(data.size <= CHUNK_SIZE) { "Chunk exceeds max size: ${data.size}" }
+        return byteArrayOf(
+            CLA_TNG,
+            instruction,
+            chunkIdx.toByte(),
+            totalChunks.toByte(),
+            data.size.toByte(),
+        ) + data
     }
 }
 

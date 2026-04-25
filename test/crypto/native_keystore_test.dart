@@ -68,6 +68,7 @@ void main() {
       expect(methodCalls.last.method, 'sign');
       expect(methodCalls.last.arguments['alias'], alias);
       expect(methodCalls.last.arguments['data'], data);
+      expect(methodCalls.last.arguments['amountCents'], 0);
       expect(result.length, 64);
     });
 

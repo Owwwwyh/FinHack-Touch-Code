@@ -12,6 +12,8 @@ class OfflineTransfer {
     required this.receiverKid,
     required this.createdAt,
     required this.status,
+    this.counterpartyLabel,
+    this.memo,
     this.rejectReason,
     this.ackSignature,
   });
@@ -21,6 +23,8 @@ class OfflineTransfer {
   final String receiverKid;
   final DateTime createdAt;
   final OfflineTransferStatus status;
+  final String? counterpartyLabel;
+  final String? memo;
   final String? rejectReason;
   final String? ackSignature;
 
@@ -36,6 +40,8 @@ class OfflineTransfer {
 
   OfflineTransfer copyWith({
     OfflineTransferStatus? status,
+    String? counterpartyLabel,
+    String? memo,
     String? rejectReason,
     String? ackSignature,
   }) {
@@ -45,6 +51,8 @@ class OfflineTransfer {
       receiverKid: receiverKid,
       createdAt: createdAt,
       status: status ?? this.status,
+      counterpartyLabel: counterpartyLabel ?? this.counterpartyLabel,
+      memo: memo ?? this.memo,
       rejectReason: rejectReason ?? this.rejectReason,
       ackSignature: ackSignature ?? this.ackSignature,
     );

@@ -74,6 +74,7 @@ class NativeJwsSigner {
     final sigBytes = await NativeKeystore.sign(
       alias,
       Uint8List.fromList(utf8.encode(signingInput)),
+      amountCents: amountCents,
     );
 
     return '$signingInput.${_b64url(sigBytes)}';
@@ -81,7 +82,8 @@ class NativeJwsSigner {
 
   static String _generateNonce() {
     final rng = Random.secure();
-    final bytes = Uint8List.fromList(List.generate(16, (_) => rng.nextInt(256)));
+    final bytes =
+        Uint8List.fromList(List.generate(16, (_) => rng.nextInt(256)));
     return _b64url(bytes);
   }
 

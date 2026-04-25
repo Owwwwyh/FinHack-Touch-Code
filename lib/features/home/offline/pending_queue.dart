@@ -24,7 +24,9 @@ class PendingQueue extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)
+        ],
       ),
       child: Column(
         children: [
@@ -33,19 +35,26 @@ class PendingQueue extends StatelessWidget {
             child: Row(
               children: [
                 const Text('Pending Sync',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF0F172A))),
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0F172A))),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                      color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(20)),
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(20)),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.cloud_off, color: Color(0xFFB45309), size: 11),
+                      const Icon(Icons.cloud_off,
+                          color: Color(0xFFB45309), size: 11),
                       const SizedBox(width: 3),
                       Text('${items.length} queued',
-                          style: const TextStyle(fontSize: 10, color: Color(0xFFB45309))),
+                          style: const TextStyle(
+                              fontSize: 10, color: Color(0xFFB45309))),
                     ],
                   ),
                 ),
@@ -57,7 +66,8 @@ class PendingQueue extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
               child: Text(
                 'No offline transactions yet.\nTap the NFC button below to pay.',
-                style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8), height: 1.5),
+                style: TextStyle(
+                    fontSize: 13, color: Color(0xFF94A3B8), height: 1.5),
                 textAlign: TextAlign.center,
               ),
             )
@@ -69,7 +79,8 @@ class PendingQueue extends StatelessWidget {
                   child: Divider(height: 1, color: Color(0xFFF1F5F9)),
                 ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     Container(
@@ -77,7 +88,8 @@ class PendingQueue extends StatelessWidget {
                       height: 40,
                       decoration: const BoxDecoration(
                           color: Color(0xFFFEF3C7), shape: BoxShape.circle),
-                      child: const Icon(Icons.access_time, color: Color(0xFFB45309), size: 18),
+                      child: const Icon(Icons.access_time,
+                          color: Color(0xFFB45309), size: 18),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -85,15 +97,19 @@ class PendingQueue extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(items[i].merchant,
-                              style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A))),
+                              style: const TextStyle(
+                                  fontSize: 14, color: Color(0xFF0F172A))),
                           Text('${items[i].time} · awaiting sync',
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                              style: const TextStyle(
+                                  fontSize: 11, color: Color(0xFF94A3B8))),
                         ],
                       ),
                     ),
                     Text('-RM ${items[i].amount.toStringAsFixed(2)}',
                         style: const TextStyle(
-                            fontSize: 14, color: Color(0xFF0F172A), fontWeight: FontWeight.w500)),
+                            fontSize: 14,
+                            color: Color(0xFF0F172A),
+                            fontWeight: FontWeight.w500)),
                   ],
                 ),
               ),

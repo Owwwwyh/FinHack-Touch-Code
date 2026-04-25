@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 class TngBottomNav extends StatelessWidget {
-  const TngBottomNav({super.key, required this.activeTab, required this.onTabChanged});
+  const TngBottomNav(
+      {super.key, required this.activeTab, required this.onTabChanged});
   final int activeTab;
   final ValueChanged<int> onTabChanged;
 
@@ -41,30 +42,41 @@ class TngBottomNav extends StatelessWidget {
                       colors: [Color(0xFF0066FF), Color(0xFF003DB8)],
                     ),
                     shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: Color(0x550066FF), blurRadius: 12, offset: Offset(0, 4))],
+                    boxShadow: [
+                      BoxShadow(
+                          color: Color(0x550066FF),
+                          blurRadius: 12,
+                          offset: Offset(0, 4))
+                    ],
                   ),
-                  child: const Icon(Icons.qr_code_scanner, color: Colors.white, size: 24),
+                  child: const Icon(Icons.qr_code_scanner,
+                      color: Colors.white, size: 24),
                 ),
               )
             else
               GestureDetector(
                 onTap: () => onTabChanged(i),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         _icons[i],
                         size: 22,
-                        color: activeTab == i ? const Color(0xFF2563EB) : const Color(0xFF94A3B8),
+                        color: activeTab == i
+                            ? const Color(0xFF2563EB)
+                            : const Color(0xFF94A3B8),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         _labels[i],
                         style: TextStyle(
                           fontSize: 10,
-                          color: activeTab == i ? const Color(0xFF2563EB) : const Color(0xFF94A3B8),
+                          color: activeTab == i
+                              ? const Color(0xFF2563EB)
+                              : const Color(0xFF94A3B8),
                         ),
                       ),
                     ],
