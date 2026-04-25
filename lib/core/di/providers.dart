@@ -11,12 +11,46 @@ import '../connectivity/connectivity_service.dart';
 export '../connectivity/connectivity_service.dart'
     show connectivityServiceProvider, isOfflineProvider;
 
+import '../../data/api/wallet_api.dart';
+import '../../data/api/devices_api.dart';
+import '../../data/api/tokens_api.dart';
+
+// ─── API Providers ────────────────────────────────────────────────────────────
+
+final walletApiProvider = Provider((ref) => WalletApi());
+final devicesApiProvider = Provider((ref) => DevicesApi());
+final tokensApiProvider = Provider((ref) => TokensApi());
+
 // ─── Wallet State ─────────────────────────────────────────────────────────────
 
 /// Mutable wallet state (balance + safe offline).
 /// In Phase 2 this is demo data; Phase 3 hooks into API.
 class WalletNotifier extends StateNotifier<WalletState> {
-  WalletNotifier() : super(WalletState.demo());
+  final WalletApi _api;
+  WalletNotifier(this._api) : super(WalletState.demo());
+
+  /// Fetch authoritative balance from server.
+  Future<void> syncBalance() async {
+    try {
+      final newState = await _api.getBalance(state.userId);
+      state = newState;
+    } catch (e) {
+      // In a real app, handle error (e.g., show snackbar)
+    }
+  }
+
+  /// Trigger AI risk scoring.
+  Future<void> refreshAIScore() async {
+    try {
+      final result = await _api.refreshSafeLimit(state.userId, {});
+      state = state.copyWith(
+        safeOfflineMyr: result.safeOfflineLimit,
+        riskScore:      result.riskScore,
+      );
+    } catch (e) {
+      // Handle error
+    }
+  }
 
   /// Called after a successful /wallet/balance response.
   void updateFromServer({
@@ -47,7 +81,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
 }
 
 final walletProvider = StateNotifierProvider<WalletNotifier, WalletState>(
-  (ref) => WalletNotifier(),
+  (ref) => WalletNotifier(ref.watch(walletApiProvider)),
 );
 
 // ─── Pending token count ───────────────────────────────────────────────────────

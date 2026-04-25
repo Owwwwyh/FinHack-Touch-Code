@@ -1,9 +1,10 @@
-// lib/features/pending/pending_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/di/providers.dart';
 import '../../core/theme/app_theme.dart';
 
-class PendingScreen extends StatelessWidget {
+class PendingScreen extends ConsumerWidget {
   const PendingScreen({super.key});
 
   static const _demoOutbox = [
@@ -16,7 +17,7 @@ class PendingScreen extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pending Tokens'),
@@ -40,8 +41,20 @@ class PendingScreen extends StatelessWidget {
           const SizedBox(height: 24),
           // Settle button
           FilledButton.icon(
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Settlement triggered — will process when online'))),
+            onPressed: () async {
+              // Simulate getting tokens from local DB
+              final mockTokens = _demoOutbox.map((t) => 'jws_token_${t.$3}').toList();
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Settling tokens with backend...')));
+              
+              final results = await ref.read(tokensApiProvider).settle(mockTokens);
+              
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Settled ${results.length} tokens successfully!')));
+              }
+            },
             icon: const Icon(Icons.cloud_upload_outlined),
             label: const Text('Settle all pending'),
           ),

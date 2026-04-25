@@ -8,6 +8,7 @@ class WalletState {
     required this.safeOfflineMyr,
     required this.syncedAt,
     required this.policyVersion,
+    required this.riskScore,
   });
 
   final String userId;
@@ -15,6 +16,7 @@ class WalletState {
   final double safeOfflineMyr;
   final DateTime syncedAt;
   final String policyVersion;
+  final String riskScore;
 
   /// The displayable safe offline balance (may be lowered by local spending).
   double get displaySafeOffline => safeOfflineMyr;
@@ -24,12 +26,14 @@ class WalletState {
     double? safeOfflineMyr,
     DateTime? syncedAt,
     String? policyVersion,
+    String? riskScore,
   }) => WalletState(
     userId:         userId,
     balanceMyr:     balanceMyr     ?? this.balanceMyr,
     safeOfflineMyr: safeOfflineMyr ?? this.safeOfflineMyr,
     syncedAt:       syncedAt       ?? this.syncedAt,
     policyVersion:  policyVersion  ?? this.policyVersion,
+    riskScore:      riskScore      ?? this.riskScore,
   );
 
   /// Demo / initial state.
@@ -39,5 +43,17 @@ class WalletState {
     safeOfflineMyr: 120.00,
     syncedAt:       DateTime.now(),
     policyVersion:  'v1.demo',
+    riskScore:      'LOW',
   );
+}
+
+/// Result of an AI risk scoring operation.
+class RiskScoreResult {
+  const RiskScoreResult({
+    required this.riskScore,
+    required this.safeOfflineLimit,
+  });
+
+  final String riskScore; // 'LOW' | 'MEDIUM' | 'HIGH'
+  final double safeOfflineLimit;
 }

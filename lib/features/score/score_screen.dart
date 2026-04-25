@@ -1,17 +1,26 @@
-// lib/features/score/score_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/di/providers.dart';
 import '../../core/theme/app_theme.dart';
 
-class ScoreScreen extends StatelessWidget {
+class ScoreScreen extends ConsumerWidget {
   const ScoreScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final wallet = ref.watch(walletProvider);
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Safe Offline Limit'),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/home')),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref.read(walletProvider.notifier).refreshAIScore(),
+          ),
+        ],
       ),
       body: SafeArea(
         child: ListView(
@@ -25,22 +34,24 @@ class ScoreScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
               ),
-              child: const Column(
+              child: Column(
                 children: [
-                  Icon(Icons.auto_awesome, color: AppTheme.tngBlue, size: 48),
-                  SizedBox(height: 16),
-                  Text('AI-Powered Security', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                  SizedBox(height: 12),
-                  Text(
+                  const Icon(Icons.auto_awesome, color: AppTheme.tngBlue, size: 48),
+                  const SizedBox(height: 16),
+                  const Text('AI-Powered Security', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 12),
+                  const Text(
                     'Your safe offline limit is dynamically calculated by our on-device AI to protect your funds if your phone is lost while offline.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppTheme.offlineGrey, fontSize: 14, height: 1.5),
                   ),
-                  SizedBox(height: 32),
-                  _StatRow(label: 'Current Limit', value: 'RM 120.00', highlight: true),
-                  Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
-                  _StatRow(label: 'Total Available Balance', value: 'RM 248.50'),
-                  Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
+                  const SizedBox(height: 32),
+                  _StatRow(label: 'Current Limit', value: 'RM ${wallet.safeOfflineMyr.toStringAsFixed(2)}', highlight: true),
+                  const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
+                  _StatRow(label: 'Risk Score', value: wallet.riskScore, color: _getRiskColor(wallet.riskScore)),
+                  const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
+                  _StatRow(label: 'Total Available Balance', value: 'RM ${wallet.balanceMyr.toStringAsFixed(2)}'),
+                  const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
                   _StatRow(label: 'Last Calculated', value: 'Today, 09:30 AM'),
                 ],
               ),
@@ -56,12 +67,23 @@ class ScoreScreen extends StatelessWidget {
       ),
     );
   }
+
+  Color _getRiskColor(String score) {
+    switch (score) {
+      case 'LOW': return Colors.green;
+      case 'MEDIUM': return Colors.orange;
+      case 'HIGH': return Colors.red;
+      default: return AppTheme.offlineGrey;
+    }
+  }
+}
 }
 
 class _StatRow extends StatelessWidget {
-  const _StatRow({required this.label, required this.value, this.highlight = false});
+  const _StatRow({required this.label, required this.value, this.highlight = false, this.color});
   final String label, value;
   final bool highlight;
+  final Color? color;
   
   @override
   Widget build(BuildContext context) {
@@ -72,7 +94,7 @@ class _StatRow extends StatelessWidget {
         Text(value, style: TextStyle(
           fontWeight: highlight ? FontWeight.w800 : FontWeight.w600,
           fontSize: highlight ? 18 : 14,
-          color: highlight ? AppTheme.tngBlueDark : const Color(0xFF1F2937),
+          color: color ?? (highlight ? AppTheme.tngBlueDark : const Color(0xFF1F2937)),
         )),
       ],
     );

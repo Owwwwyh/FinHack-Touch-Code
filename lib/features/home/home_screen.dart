@@ -28,8 +28,10 @@ class HomeScreen extends ConsumerWidget {
     final headerColor = isOffline ? AppTheme.offlineGrey : AppTheme.tngBlueDark;
 
     return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.only(bottom: 100),
+      child: RefreshIndicator(
+        onRefresh: () => ref.read(walletProvider.notifier).syncBalance(),
+        child: ListView(
+          padding: const EdgeInsets.only(bottom: 100),
         children: [
           // ── Header + balance card ──────────────────────────────────────────
           Stack(
@@ -102,6 +104,7 @@ class HomeScreen extends ConsumerWidget {
             child: _SafeOfflineCard(
               safeOffline: wallet.safeOfflineMyr,
               balance: wallet.balanceMyr,
+              riskScore: wallet.riskScore,
               isOffline: isOffline,
               onTapInfo: () => context.go('/score'),
             ),
@@ -288,9 +291,11 @@ class _ActionBtn extends StatelessWidget {
 class _SafeOfflineCard extends StatelessWidget {
   const _SafeOfflineCard({
     required this.safeOffline, required this.balance,
+    required this.riskScore,
     required this.isOffline, required this.onTapInfo,
   });
   final double safeOffline, balance;
+  final String riskScore;
   final bool isOffline;
   final VoidCallback onTapInfo;
 
@@ -333,6 +338,16 @@ class _SafeOfflineCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text('of RM ${balance.toStringAsFixed(2)} available',
                     style: const TextStyle(color: AppTheme.offlineGrey, fontSize: 12)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Text('Risk: ', style: TextStyle(color: AppTheme.offlineGrey, fontSize: 11)),
+                      Text(riskScore, 
+                        style: TextStyle(
+                          color: _getRiskColor(riskScore), 
+                          fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -353,14 +368,23 @@ class _SafeOfflineCard extends StatelessWidget {
       ),
     );
   }
+
+  Color _getRiskColor(String score) {
+    switch (score) {
+      case 'LOW': return Colors.green;
+      case 'MEDIUM': return Colors.orange;
+      case 'HIGH': return Colors.red;
+      default: return AppTheme.offlineGrey;
+    }
+  }
 }
 
-class _ReconnectBanner extends StatelessWidget {
+class _ReconnectBanner extends ConsumerWidget {
   const _ReconnectBanner({required this.pending});
   final int pending;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -386,7 +410,7 @@ class _ReconnectBanner extends StatelessWidget {
             ),
           ),
           TextButton(
-            onPressed: () {},
+            onPressed: () => ref.read(walletProvider.notifier).syncBalance(),
             child: const Text('Reconnect',
               style: TextStyle(color: AppTheme.tngBlue, fontWeight: FontWeight.w700)),
           ),
