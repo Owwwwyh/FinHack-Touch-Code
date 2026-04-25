@@ -33,8 +33,11 @@ ml/
 │   ├── token-001-valid.jws
 │   ├── token-002-expired.jws
 │   └── ... (6 total)
-├── eas/                         # Alibaba PAI-EAS container
-│   └── Dockerfile               # Flask + XGBoost inference
+├── eas/                         # Alibaba PAI-EAS score service
+│   ├── app.py                   # Flask app exposing POST /score
+│   ├── Dockerfile               # Container image for Alibaba deployment
+│   ├── requirements.txt         # Runtime deps for the score service
+│   └── README.md                # Local run + env var notes
 └── README.md                    # This file
 ```
 
@@ -170,6 +173,13 @@ Response:
 ```
 
 Mobile uses this to override on-device estimate when online. Falls back to on-device if timeout > 800 ms.
+
+Run the local EAS-compatible service with:
+
+```bash
+pip install -r ml/eas/requirements.txt
+python ml/eas/app.py
+```
 
 ## AWS SageMaker Training Pipeline
 
