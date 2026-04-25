@@ -1,7 +1,15 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
+import '../../core/crypto/native_jws_signer.dart';
+import '../../core/crypto/native_keystore.dart';
+import '../../core/nfc/nfc_sender.dart';
 import '../../domain/models/offline_transfer.dart';
 import '../../domain/services/offline_pay_policy.dart';
+
+enum _NfcPayState { idle, waitingForTap, signing, sending, success, error }
 
 class PayScreen extends StatefulWidget {
   const PayScreen({super.key});
@@ -14,10 +22,11 @@ class _PayScreenState extends State<PayScreen> {
   static const _policy = OfflinePayPolicy();
 
   final TextEditingController _amountController = TextEditingController();
-  final List<OfflineTransfer> _drafts = <OfflineTransfer>[];
+  final List<OfflineTransfer> _outbox = [];
 
   AmountValidationResult _validation =
       const AmountValidationResult.invalid('Enter an amount to continue.');
+  _NfcPayState _nfcState = _NfcPayState.idle;
 
   @override
   void dispose() {
@@ -26,9 +35,7 @@ class _PayScreenState extends State<PayScreen> {
   }
 
   void _onAmountChanged(String value) {
-    setState(() {
-      _validation = _policy.validateAmountText(value);
-    });
+    setState(() => _validation = _policy.validateAmountText(value));
   }
 
   void _setAmount(String amount) {
@@ -37,33 +44,98 @@ class _PayScreenState extends State<PayScreen> {
     _onAmountChanged(amount);
   }
 
-  void _prepareTap() {
-    final validation = _policy.validateAmountText(_amountController.text);
-    if (!validation.isValid || validation.amountCents == null) {
+  Future<void> _startNfcPay() async {
+    final amountCents = _validation.amountCents;
+    if (!_validation.isValid || amountCents == null) return;
+
+    setState(() => _nfcState = _NfcPayState.waitingForTap);
+
+    try {
+      // Ensure we have a signing key
+      if (!await NativeKeystore.keyExists('tng_signing_v1')) {
+        await NativeKeystore.generateKey('tng_signing_v1', Uint8List(0));
+      }
+      final senderPub = await NativeKeystore.getPublicKey('tng_signing_v1');
+
+      // Step 1: SELECT — get receiver pub key
+      setState(() => _nfcState = _NfcPayState.waitingForTap);
+      final receiverPub = await NfcSender.selectAndGetReceiverPub();
+      if (receiverPub == null || receiverPub.length != 32) {
+        throw const NfcException('NFC_ERROR', 'No receiver detected');
+      }
+
+      // Step 2: Sign JWS
+      setState(() => _nfcState = _NfcPayState.signing);
+      final signer = NativeJwsSigner(
+        kid: 'did:tng:device:local',
+        policy: _policy.policyVersion,
+        senderPub: senderPub,
+      );
+      final txId = _generateTxId();
+      final jws = await signer.signTransaction(
+        txId: txId,
+        userId: 'u_local',
+        receiverKid: 'did:tng:device:receiver',
+        receiverPub: receiverPub,
+        amountCents: amountCents,
+        policySignedBalance: (_policy.safeOfflineBalanceCents / 100.0).toStringAsFixed(2),
+      );
+
+      // Step 3: Send JWS chunks + get ack
+      setState(() => _nfcState = _NfcPayState.sending);
+      final ackSigBytes = await NfcSender.sendJwsAndGetAck(jws);
+      final ackSig = base64Url.encode(ackSigBytes).replaceAll('=', '');
+
+      // Step 4: Store in outbox
+      final transfer = OfflineTransfer(
+        txId: txId,
+        amountCents: amountCents,
+        receiverKid: 'did:tng:device:receiver',
+        createdAt: DateTime.now(),
+        status: OfflineTransferStatus.pendingSettlement,
+        ackSignature: ackSig,
+      );
+
       setState(() {
-        _validation = validation;
+        _outbox.insert(0, transfer);
+        _nfcState = _NfcPayState.success;
       });
-      return;
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sent ${transfer.amountLabel} — tap complete!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } on NfcException catch (e) {
+      setState(() => _nfcState = _NfcPayState.error);
+      _showError('NFC error: ${e.message}');
+    } catch (e) {
+      setState(() => _nfcState = _NfcPayState.error);
+      _showError('Error: $e');
+    } finally {
+      await NfcSender.stopReaderMode();
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (mounted) setState(() => _nfcState = _NfcPayState.idle);
     }
+  }
 
-    final draft = _policy.createDraft(
-      amountCents: validation.amountCents!,
-      createdAt: DateTime.now(),
-    );
+  void _showError(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+  }
 
-    setState(() {
-      _drafts.insert(0, draft);
-      _validation = validation;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Prepared ${draft.amountLabel} for NFC tap.')),
-    );
+  String _generateTxId() {
+    final ms = DateTime.now().millisecondsSinceEpoch;
+    return '01${ms.toRadixString(36).padLeft(12, '0').toUpperCase()}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final amountEnabled = _validation.isValid;
+    final canPay = _validation.isValid && _nfcState == _NfcPayState.idle;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Pay Offline')),
@@ -71,7 +143,7 @@ class _PayScreenState extends State<PayScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           Text(
-            'Hold near the receiver to prepare an offline token.',
+            'Hold near the receiver to send an offline payment.',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 16),
@@ -81,17 +153,14 @@ class _PayScreenState extends State<PayScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Amount',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
+                  const Text('Amount', style: TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
                   TextField(
                     key: const ValueKey('pay-amount-field'),
                     controller: _amountController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     onChanged: _onAmountChanged,
+                    enabled: _nfcState == _NfcPayState.idle,
                     decoration: InputDecoration(
                       hintText: '8.50',
                       helperText:
@@ -110,20 +179,24 @@ class _PayScreenState extends State<PayScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  _NfcStatusBar(state: _nfcState),
+                  const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: amountEnabled ? _prepareTap : null,
+                      onPressed: canPay ? _startNfcPay : null,
                       icon: const Icon(Icons.nfc),
-                      label: const Text('Hold near receiver'),
+                      label: Text(_nfcState == _NfcPayState.idle
+                          ? 'Hold near receiver'
+                          : _nfcStateLabel(_nfcState)),
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          if (_drafts.isNotEmpty)
+          if (_outbox.isNotEmpty) ...[
+            const SizedBox(height: 16),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -131,40 +204,69 @@ class _PayScreenState extends State<PayScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Prepared NFC tokens',
+                      'Outbox (pending settlement)',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 12),
-                    for (final draft in _drafts)
+                    for (final t in _outbox)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
-                        child: _TransferTile(transfer: draft),
+                        child: _TransferTile(transfer: t),
                       ),
                   ],
                 ),
               ),
             ),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Tap sequence',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  SizedBox(height: 8),
-                  Text('1. Amount validated against safe offline balance.'),
-                  Text('2. Keystore signing will be wired in the next slice.'),
-                  Text('3. NFC APDU transfer and settlement follow after that.'),
-                ],
-              ),
-            ),
-          ),
+          ],
         ],
       ),
+    );
+  }
+
+  String _nfcStateLabel(_NfcPayState s) => switch (s) {
+        _NfcPayState.waitingForTap => 'Waiting for tap…',
+        _NfcPayState.signing => 'Signing…',
+        _NfcPayState.sending => 'Sending…',
+        _NfcPayState.success => 'Done!',
+        _NfcPayState.error => 'Error — tap to retry',
+        _NfcPayState.idle => 'Hold near receiver',
+      };
+}
+
+class _NfcStatusBar extends StatelessWidget {
+  const _NfcStatusBar({required this.state});
+
+  final _NfcPayState state;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state == _NfcPayState.idle) return const SizedBox.shrink();
+
+    final (icon, color, label) = switch (state) {
+      _NfcPayState.waitingForTap => (Icons.nfc, Colors.blue, 'Waiting for NFC tap…'),
+      _NfcPayState.signing => (Icons.lock, Colors.orange, 'Signing with Keystore…'),
+      _NfcPayState.sending => (Icons.sync, Colors.blue, 'Sending token…'),
+      _NfcPayState.success => (Icons.check_circle, Colors.green, 'Payment sent!'),
+      _NfcPayState.error => (Icons.error, Colors.red, 'NFC error'),
+      _NfcPayState.idle => (Icons.nfc, Colors.grey, ''),
+    };
+
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(width: 8),
+        Text(label, style: TextStyle(color: color, fontSize: 13)),
+        if (state == _NfcPayState.waitingForTap ||
+            state == _NfcPayState.signing ||
+            state == _NfcPayState.sending) ...[
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2, color: color),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -176,9 +278,7 @@ class _AmountChip extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return ActionChip(label: Text(label), onPressed: onTap);
-  }
+  Widget build(BuildContext context) => ActionChip(label: Text(label), onPressed: onTap);
 }
 
 class _TransferTile extends StatelessWidget {
@@ -196,15 +296,34 @@ class _TransferTile extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Text(
-              '${transfer.amountLabel} to ${transfer.receiverKid}',
-              style: const TextStyle(fontWeight: FontWeight.w700),
+            const Icon(Icons.send, size: 16, color: Color(0xFF64748B)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    transfer.amountLabel,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    'tx …${transfer.shortTxId} · ${transfer.status.name}',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 4),
-            Text('tx ${transfer.shortTxId} · ${transfer.status.name}'),
+            Icon(
+              transfer.status == OfflineTransferStatus.settled
+                  ? Icons.check_circle
+                  : Icons.schedule,
+              size: 16,
+              color: transfer.status == OfflineTransferStatus.settled
+                  ? Colors.green
+                  : Colors.orange,
+            ),
           ],
         ),
       ),
