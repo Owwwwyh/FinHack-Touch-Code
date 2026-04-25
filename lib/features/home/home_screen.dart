@@ -72,6 +72,10 @@ class HomeScreen extends ConsumerWidget {
               connectivity.hasNetwork ? 'Go offline' : 'Go online',
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => context.go(RoutePaths.settings),
+          ),
         ],
       ),
       body: RefreshIndicator(
@@ -173,43 +177,37 @@ class HomeScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
-            FilledButton.tonal(
-              onPressed: connectivity.hasNetwork
-                  ? connectivityService.markSyncSuccess
-                  : null,
-              child: Text(
-                connectivity.hasNetwork
-                    ? 'Get latest balance'
-                    : 'Reconnect to refresh',
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonal(
+                    onPressed: connectivity.hasNetwork
+                        ? connectivityService.markSyncSuccess
+                        : null,
+                    child: Text(
+                      connectivity.hasNetwork
+                          ? 'Get latest balance'
+                          : 'Reconnect to refresh',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => context.go(RoutePaths.history),
+                    icon: const Icon(Icons.history),
+                    label: const Text('History'),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Pending settlement',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 12),
-                    _MetricRow(
-                      label: 'Merchant requests waiting',
-                      value: payments.outgoingRequest == null ? '0' : '1',
-                    ),
-                    _MetricRow(
-                      label: 'Outbox tokens',
-                      value: payments.outbox.length.toString(),
-                    ),
-                    _MetricRow(
-                      label: 'Inbox tokens',
-                      value: payments.inbox.length.toString(),
-                    ),
-                  ],
-                ),
-              ),
+            _PendingTokensList(
+              payments: payments,
+              hasNetwork: connectivity.hasNetwork,
+              onSettle: connectivity.hasNetwork
+                  ? connectivityService.markSyncSuccess
+                  : null,
             ),
           ],
         ),
@@ -298,25 +296,124 @@ String _formatMyr(int cents) {
   return 'RM $whole.$fraction';
 }
 
-class _MetricRow extends StatelessWidget {
-  const _MetricRow({
-    required this.label,
-    required this.value,
+class _PendingTokensList extends StatelessWidget {
+  const _PendingTokensList({
+    required this.payments,
+    required this.hasNetwork,
+    required this.onSettle,
   });
 
-  final String label;
-  final String value;
+  final OfflinePaymentState payments;
+  final bool hasNetwork;
+  final VoidCallback? onSettle;
+
+  @override
+  Widget build(BuildContext context) {
+    final pendingOutbox = payments.outbox
+        .where((t) =>
+            t.status != OfflineTransferStatus.settled &&
+            t.status != OfflineTransferStatus.rejected)
+        .toList();
+    final pendingInbox = payments.inbox
+        .where((t) =>
+            t.status != OfflineTransferStatus.settled &&
+            t.status != OfflineTransferStatus.rejected)
+        .toList();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'Pending settlement',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const Spacer(),
+                Text(
+                  '${pendingOutbox.length + pendingInbox.length} token(s)',
+                  style: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+            if (pendingOutbox.isEmpty && pendingInbox.isEmpty) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'No pending tokens',
+                style: TextStyle(color: Color(0xFF94A3B8)),
+              ),
+            ] else ...[
+              const SizedBox(height: 12),
+              ...pendingOutbox.map((t) => _PendingRow(
+                    transfer: t,
+                    sent: true,
+                    onSettle: onSettle,
+                  )),
+              ...pendingInbox.map((t) => _PendingRow(
+                    transfer: t,
+                    sent: false,
+                    onSettle: onSettle,
+                  )),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PendingRow extends StatelessWidget {
+  const _PendingRow({
+    required this.transfer,
+    required this.sent,
+    required this.onSettle,
+  });
+
+  final OfflineTransfer transfer;
+  final bool sent;
+  final VoidCallback? onSettle;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          Expanded(child: Text(label)),
-          Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.w700),
+          Icon(
+            sent ? Icons.arrow_upward : Icons.arrow_downward,
+            size: 16,
+            color: sent ? const Color(0xFFEA580C) : const Color(0xFF16A34A),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  transfer.counterpartyLabel ?? (sent ? 'Sent' : 'Received'),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  transfer.amountLabel,
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ),
+          OutlinedButton(
+            onPressed: onSettle,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text('Settle now', style: TextStyle(fontSize: 12)),
           ),
         ],
       ),

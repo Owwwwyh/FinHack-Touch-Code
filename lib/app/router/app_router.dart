@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/history/history_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
+import '../../features/settings/settings_screen.dart';
 import '../../features/pay/pay_confirm_screen.dart';
 import '../../features/receive/receive_screen.dart';
 import '../../features/request/request_pending_screen.dart';
@@ -41,6 +43,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.receive,
         builder: (context, state) => const ReceiveScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.history,
+        builder: (context, state) => const HistoryScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.settings,
+        builder: (context, state) => const SettingsScreen(),
       ),
     ],
   );

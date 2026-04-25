@@ -8,4 +8,6 @@ class RoutePaths {
   static const requestPending = '/request/pending';
   static const payConfirm = '/pay/confirm';
   static const receive = '/receive';
+  static const history = '/history';
+  static const settings = '/settings';
 }
