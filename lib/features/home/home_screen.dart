@@ -35,15 +35,6 @@ class HomeScreen extends ConsumerWidget {
         showSafeBalance ? score.cachedBalanceCents : availableSafeBalanceCents;
 
     ref.listen(
-      offlinePaymentControllerProvider.select((state) => state.incomingRequest),
-      (previous, next) {
-        if (next != null && context.mounted) {
-          context.go(RoutePaths.payConfirm);
-        }
-      },
-    );
-
-    ref.listen(
       offlinePaymentControllerProvider.select((state) => state.errorMessage),
       (previous, next) {
         if (next != null && next.isNotEmpty && context.mounted) {
@@ -413,11 +404,13 @@ class _PendingRow extends StatelessWidget {
               children: [
                 Text(
                   transfer.counterpartyLabel ?? (sent ? 'Sent' : 'Received'),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600),
                 ),
                 Text(
                   transfer.amountLabel,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  style:
+                      const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                 ),
               ],
             ),

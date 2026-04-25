@@ -136,31 +136,21 @@ class TngHostApduService : HostApduService() {
 
     private fun notifyPaymentRequest(requestJson: String) {
         mainHandler.post {
-            val sink = MainActivity.paymentRequestEventSink
-            if (sink != null) {
-                sink.success(mapOf("requestJson" to requestJson))
-            } else {
-                Log.w(TAG, "No payment request sink; request event dropped")
-            }
+            MainActivity.publishPaymentRequestEvent(mapOf("requestJson" to requestJson))
         }
     }
 
     private fun notifyReceivedToken(jws: String, ackSig: ByteArray) {
         mainHandler.post {
-            val sink = MainActivity.inboxEventSink
-            if (sink != null) {
-                sink.success(
-                    mapOf(
-                        "jws" to jws,
-                        "ackSig" to Base64.encodeToString(
-                            ackSig,
-                            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING,
-                        ),
+            MainActivity.publishInboxEvent(
+                mapOf(
+                    "jws" to jws,
+                    "ackSig" to Base64.encodeToString(
+                        ackSig,
+                        Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING,
                     ),
-                )
-            } else {
-                Log.w(TAG, "No inbox sink; token event dropped")
-            }
+                ),
+            )
         }
     }
 

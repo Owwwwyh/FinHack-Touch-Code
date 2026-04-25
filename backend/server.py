@@ -12,6 +12,7 @@ from flask import Flask, Response, request  # noqa: E402
 
 import fc.device_register.handler as _device_register
 import fc.score_policy.handler as _score_policy
+import fc.score_refresh.handler as _score_refresh
 import fc.tokens_settle.handler as _tokens_settle
 import fc.wallet_balance.handler as _wallet_balance
 from lib import demo_state
@@ -86,17 +87,7 @@ def score_policy():
 
 @app.route("/v1/score/refresh", methods=["POST"])
 def score_refresh():
-    body = {
-        "safe_offline_balance_myr": "120.00",
-        "confidence": 0.87,
-        "policy_version": "v3.2026-04-22",
-        "computed_at": datetime.now(timezone.utc).isoformat(),
-    }
-    return Response(
-        json.dumps(body),
-        status=200,
-        headers={"Content-Type": "application/json; charset=utf-8", "X-API-Version": "v1"},
-    )
+    return _call_handler(_score_refresh.handler, request)
 
 
 @app.route("/v1/tokens/settle", methods=["POST"])

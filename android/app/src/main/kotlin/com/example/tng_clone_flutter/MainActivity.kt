@@ -28,6 +28,47 @@ class MainActivity : FlutterActivity() {
 
         @Volatile
         var inboxEventSink: EventChannel.EventSink? = null
+
+        private val bufferedPaymentRequests = mutableListOf<Map<String, String>>()
+        private val bufferedInboxEvents = mutableListOf<Map<String, String>>()
+
+        @Synchronized
+        fun publishPaymentRequestEvent(event: Map<String, String>) {
+            val sink = paymentRequestEventSink
+            if (sink != null) {
+                sink.success(event)
+            } else {
+                bufferedPaymentRequests += event
+            }
+        }
+
+        @Synchronized
+        fun publishInboxEvent(event: Map<String, String>) {
+            val sink = inboxEventSink
+            if (sink != null) {
+                sink.success(event)
+            } else {
+                bufferedInboxEvents += event
+            }
+        }
+
+        @Synchronized
+        private fun flushBufferedPaymentRequests() {
+            val sink = paymentRequestEventSink ?: return
+            if (bufferedPaymentRequests.isEmpty()) return
+            val events = bufferedPaymentRequests.toList()
+            bufferedPaymentRequests.clear()
+            events.forEach(sink::success)
+        }
+
+        @Synchronized
+        private fun flushBufferedInboxEvents() {
+            val sink = inboxEventSink ?: return
+            if (bufferedInboxEvents.isEmpty()) return
+            val events = bufferedInboxEvents.toList()
+            bufferedInboxEvents.clear()
+            events.forEach(sink::success)
+        }
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -299,6 +340,7 @@ class MainActivity : FlutterActivity() {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     paymentRequestEventSink = events
                     Log.d(TAG, "Payment request EventChannel: Flutter is listening")
+                    flushBufferedPaymentRequests()
                 }
 
                 override fun onCancel(arguments: Any?) {
@@ -314,6 +356,7 @@ class MainActivity : FlutterActivity() {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     inboxEventSink = events
                     Log.d(TAG, "Inbox EventChannel: Flutter is listening")
+                    flushBufferedInboxEvents()
                 }
 
                 override fun onCancel(arguments: Any?) {

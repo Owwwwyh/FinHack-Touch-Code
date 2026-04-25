@@ -137,6 +137,27 @@ void main() {
     expect(find.text('RM 111.50'), findsWidgets);
   });
 
+  testWidgets('Incoming request auto-opens confirm from outside Home',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(_buildApp(bridge, signingService));
+    await tester.pump(const Duration(milliseconds: 950));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Continue to Home'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('Settings'), findsOneWidget);
+
+    bridge.emitPaymentRequest(_samplePaymentRequest(amountCents: 850));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pay Confirm'), findsOneWidget);
+    expect(find.text('Payment Request Received'), findsOneWidget);
+  });
+
   testWidgets('Pay confirm disables authorization above safe balance',
       (WidgetTester tester) async {
     await tester.pumpWidget(_buildApp(bridge, signingService));
