@@ -16,15 +16,15 @@ final _router = GoRouter(
   initialLocation: '/home',
   routes: [
     GoRoute(path: '/onboard', builder: (_, __) => const OnboardingScreen()),
+    GoRoute(path: '/pay',     builder: (_, __) => const PayScreen()),
+    GoRoute(path: '/receive', builder: (_, __) => const ReceiveScreen()),
+    GoRoute(path: '/score',   builder: (_, __) => const ScoreScreen()),
     ShellRoute(
       builder: (context, state, child) => AppShell(child: child),
       routes: [
         GoRoute(path: '/home',    builder: (_, __) => const HomeScreen()),
-        GoRoute(path: '/pay',     builder: (_, __) => const PayScreen()),
-        GoRoute(path: '/receive', builder: (_, __) => const ReceiveScreen()),
         GoRoute(path: '/pending', builder: (_, __) => const PendingScreen()),
         GoRoute(path: '/history', builder: (_, __) => const HistoryScreen()),
-        GoRoute(path: '/score',   builder: (_, __) => const ScoreScreen()),
         GoRoute(path: '/settings',builder: (_, __) => const SettingsScreen()),
       ],
     ),
@@ -38,7 +38,7 @@ class TngWalletApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      title: "TNG Offline Wallet",
+      title: "AnyPay",
       theme: AppTheme.light,
       routerConfig: _router,
     );
@@ -84,26 +84,20 @@ class _AppShellState extends ConsumerState<AppShell> {
 }
 
 class _NfcFab extends StatelessWidget {
+  const _NfcFab();
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          onTap: () => context.go('/pay'),
-          child: Container(
-            width: 66, height: 66,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppTheme.tngBlue,
-              border: Border.all(color: Colors.white, width: 4),
-              boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 14, offset: Offset(0, 6))],
-            ),
-            child: const Icon(Icons.nfc, color: Colors.white, size: 30),
-          ),
-        ),
-        const SizedBox(height: 8),
-      ],
+    return SizedBox(
+      width: 66,
+      height: 66,
+      child: FloatingActionButton(
+        onPressed: () => context.go('/pay'),
+        backgroundColor: AppTheme.tngBlue,
+        elevation: 6,
+        shape: const CircleBorder(side: BorderSide(color: Colors.white, width: 4)),
+        child: const Icon(Icons.nfc, color: Colors.white, size: 30),
+      ),
     );
   }
 }
@@ -119,29 +113,38 @@ class _BottomBar extends StatelessWidget {
       shape: const CircularNotchedRectangle(),
       notchMargin: 8,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(4, (i) {
-          if (i == 2) return const SizedBox(width: 56);
-          final active = tab == i;
-          final color = active ? AppTheme.tngBlue : AppTheme.offlineGrey;
-          return GestureDetector(
-            onTap: () => onTap(i),
-            behavior: HitTestBehavior.opaque,
-            child: SizedBox(
-              width: 64, height: 56,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon([Icons.home_outlined, Icons.pending_actions_outlined, Icons.receipt_long_outlined, Icons.person_outline][i],
-                    color: color, size: 24),
-                  const SizedBox(height: 3),
-                  Text(['Home', 'Pending', 'History', 'Me'][i],
-                    style: TextStyle(color: color, fontSize: 11, fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
-                ],
-              ),
-            ),
-          );
-        }),
+        children: [
+          Expanded(child: _NavItem(icon: Icons.home_outlined, label: 'Home', isActive: tab == 0, onTap: () => onTap(0))),
+          Expanded(child: _NavItem(icon: Icons.pending_actions_outlined, label: 'Pending', isActive: tab == 1, onTap: () => onTap(1))),
+          const SizedBox(width: 56), // spacer for FAB
+          Expanded(child: _NavItem(icon: Icons.receipt_long_outlined, label: 'History', isActive: tab == 2, onTap: () => onTap(2))),
+          Expanded(child: _NavItem(icon: Icons.person_outline, label: 'Me', isActive: tab == 3, onTap: () => onTap(3))),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({required this.icon, required this.label, required this.isActive, required this.onTap});
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive ? AppTheme.tngBlue : AppTheme.offlineGrey;
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 3),
+          Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500)),
+        ],
       ),
     );
   }

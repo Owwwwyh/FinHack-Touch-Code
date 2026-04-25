@@ -13,6 +13,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/di/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/connectivity/connectivity_service.dart';
+import '../../core/providers/mode_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -20,8 +21,8 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final wallet  = ref.watch(walletProvider);
-    final connState = ref.watch(connectivityServiceProvider);
-    final isOffline = connState.state == ConnectivityState.offline;
+    final demoMode = ref.watch(modeProvider);
+    final isOffline = demoMode == AppMode.offline;
     final pending = ref.watch(pendingCountProvider);
 
     final headerColor = isOffline ? AppTheme.offlineGrey : AppTheme.tngBlueDark;
@@ -53,19 +54,22 @@ class HomeScreen extends ConsumerWidget {
                         const Text('eWallet Balance',
                           style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
                         const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.notifications_none, color: Colors.white),
-                          onPressed: () {},
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                          onPressed: () => context.go('/settings'),
+                        Row(
+                          children: [
+                            Text(isOffline ? 'Offline Mode' : 'Online Mode', 
+                               style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                            Switch(
+                              value: demoMode == AppMode.online,
+                              activeColor: Colors.greenAccent,
+                              onChanged: (val) => ref.read(modeProvider.notifier).toggleMode(),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
                     // ── Connectivity status pill ─────────────────────────────
-                    _StatusPill(connState: connState),
+                    _StatusPill(isOffline: isOffline),
                     const SizedBox(height: 10),
                     // ── Balance ──────────────────────────────────────────────
                     Text(
@@ -137,12 +141,11 @@ class HomeScreen extends ConsumerWidget {
 // ─── Sub-widgets ──────────────────────────────────────────────────────────────
 
 class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.connState});
-  final WalletConnectivity connState;
+  const _StatusPill({required this.isOffline});
+  final bool isOffline;
 
   @override
   Widget build(BuildContext context) {
-    final isOffline = connState.state == ConnectivityState.offline;
     return Row(
       children: [
         Container(
@@ -154,7 +157,7 @@ class _StatusPill extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Text(
-          connState.statusLabel,
+          isOffline ? 'Offline · last sync just now' : 'Online · synced just now',
           style: const TextStyle(color: Colors.white70, fontSize: 12),
         ),
         if (isOffline) ...[
@@ -200,8 +203,14 @@ class _ActionCard extends StatelessWidget {
             _ActionBtn(
               icon: Icons.call_received,
               label: 'Receive',
-              color: AppTheme.settled,
-              onTap: () => context.go('/receive'),
+              color: isOffline ? AppTheme.offlineGrey : AppTheme.settled,
+              onTap: () {
+                if (isOffline) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Receive not available offline')));
+                } else {
+                  context.go('/receive');
+                }
+              },
             ),
             Stack(
               clipBehavior: Clip.none,
@@ -227,10 +236,16 @@ class _ActionCard extends StatelessWidget {
               ],
             ),
             _ActionBtn(
-              icon: Icons.history,
-              label: 'History',
-              color: AppTheme.offlineGrey,
-              onTap: () => context.go('/history'),
+              icon: Icons.add_card,
+              label: 'Reload',
+              color: isOffline ? AppTheme.offlineGrey : AppTheme.tngBlue,
+              onTap: () {
+                if (isOffline) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reload not available offline')));
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mock Top-up: +RM50 added!')));
+                }
+              },
             ),
           ],
         ),
@@ -250,6 +265,7 @@ class _ActionBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
