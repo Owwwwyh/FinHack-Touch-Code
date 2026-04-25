@@ -3,8 +3,10 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/connectivity/connectivity_provider.dart';
 import '../../core/crypto/device_identity_service.dart';
 import '../../core/nfc/offline_nfc_bridge.dart';
+import '../../core/settlement/settlement_service.dart';
 import '../../domain/models/offline_transfer.dart';
 import '../../domain/models/payment_request.dart';
 import '../../domain/services/offline_pay_policy.dart';
@@ -39,7 +41,18 @@ final offlinePaymentControllerProvider =
     signingService: ref.watch(offlineSigningServiceProvider),
     readPolicy: () => ref.read(offlinePayPolicyProvider),
     now: ref.watch(offlineNowProvider),
+    settlementService: ref.watch(settlementServiceProvider),
   );
+
+  ref.listen<DateTime?>(
+    connectivityServiceProvider.select((s) => s.lastSyncedAt),
+    (previous, next) {
+      if (next != null && next != previous) {
+        controller.settleOutbox();
+      }
+    },
+  );
+
   return controller;
 });
 
@@ -67,7 +80,9 @@ class OfflinePaymentState {
     this.isSendingRequest = false,
     this.isSigning = false,
     this.isSendingPayment = false,
+    this.isSettling = false,
     this.errorMessage,
+    this.settleMessage,
   });
 
   final PendingMerchantRequest? outgoingRequest;
@@ -80,7 +95,9 @@ class OfflinePaymentState {
   final bool isSendingRequest;
   final bool isSigning;
   final bool isSendingPayment;
+  final bool isSettling;
   final String? errorMessage;
+  final String? settleMessage;
 
   bool get hasPendingTapBack =>
       readyToSendToken != null && incomingRequest != null;
@@ -96,7 +113,9 @@ class OfflinePaymentState {
     bool? isSendingRequest,
     bool? isSigning,
     bool? isSendingPayment,
+    bool? isSettling,
     Object? errorMessage = _sentinel,
+    Object? settleMessage = _sentinel,
   }) {
     return OfflinePaymentState(
       outgoingRequest: identical(outgoingRequest, _sentinel)
@@ -119,9 +138,13 @@ class OfflinePaymentState {
       isSendingRequest: isSendingRequest ?? this.isSendingRequest,
       isSigning: isSigning ?? this.isSigning,
       isSendingPayment: isSendingPayment ?? this.isSendingPayment,
+      isSettling: isSettling ?? this.isSettling,
       errorMessage: identical(errorMessage, _sentinel)
           ? this.errorMessage
           : errorMessage as String?,
+      settleMessage: identical(settleMessage, _sentinel)
+          ? this.settleMessage
+          : settleMessage as String?,
     );
   }
 }
@@ -132,10 +155,12 @@ class OfflinePaymentController extends StateNotifier<OfflinePaymentState> {
     required OfflineSigningService signingService,
     required OfflinePayPolicy Function() readPolicy,
     required DateTime Function() now,
+    SettlementService? settlementService,
   })  : _nfcBridge = nfcBridge,
         _signingService = signingService,
         _readPolicy = readPolicy,
         _now = now,
+        _settlementService = settlementService,
         super(const OfflinePaymentState()) {
     _requestSubscription = _nfcBridge.paymentRequests.listen(
       _handleIncomingRequest,
@@ -157,6 +182,7 @@ class OfflinePaymentController extends StateNotifier<OfflinePaymentState> {
   final OfflineSigningService _signingService;
   final OfflinePayPolicy Function() _readPolicy;
   final DateTime Function() _now;
+  final SettlementService? _settlementService;
 
   StreamSubscription<PaymentRequest>? _requestSubscription;
   StreamSubscription<ReceivedOfflineToken>? _inboxSubscription;
@@ -290,6 +316,7 @@ class OfflinePaymentController extends StateNotifier<OfflinePaymentState> {
         counterpartyLabel: request.receiver.displayName,
         memo: request.memo,
         ackSignature: _base64UrlEncode(ackSignature),
+        jws: signedToken.jws,
       );
       state = state.copyWith(
         isSendingPayment: false,
@@ -332,6 +359,72 @@ class OfflinePaymentController extends StateNotifier<OfflinePaymentState> {
 
   void dismissError() {
     state = state.copyWith(errorMessage: null);
+  }
+
+  void clearSettleMessage() {
+    state = state.copyWith(settleMessage: null);
+  }
+
+  Future<void> settleOutbox() async {
+    if (_settlementService == null || state.isSettling) return;
+
+    final pending = state.outbox
+        .where((t) =>
+            t.status == OfflineTransferStatus.pendingSettlement &&
+            t.jws != null)
+        .toList();
+
+    if (pending.isEmpty) return;
+
+    state = state.copyWith(isSettling: true, settleMessage: null);
+
+    try {
+      final result = await _settlementService!.settleBatch(pending);
+
+      var outbox = state.outbox;
+
+      for (final txId in result.settledIds) {
+        outbox = outbox
+            .map((t) => t.txId == txId
+                ? t.copyWith(status: OfflineTransferStatus.settled)
+                : t)
+            .toList();
+      }
+
+      for (final rejected in result.rejected) {
+        outbox = outbox
+            .map((t) => t.txId == rejected.txId
+                ? t.copyWith(
+                    status: OfflineTransferStatus.rejected,
+                    rejectReason: rejected.reason,
+                  )
+                : t)
+            .toList();
+      }
+
+      final parts = <String>[];
+      if (result.settledIds.isNotEmpty) {
+        parts.add('${result.settledIds.length} token(s) settled');
+      }
+      for (final r in result.rejected) {
+        if (r.reason == 'NONCE_REUSED') {
+          parts.add('Double-spend rejected (NONCE_REUSED)');
+        } else {
+          parts.add('Settlement rejected: ${r.reason}');
+        }
+      }
+
+      state = state.copyWith(
+        isSettling: false,
+        outbox: outbox,
+        settleMessage: parts.isEmpty ? null : parts.join(' · '),
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isSettling: false,
+        settleMessage: 'Settlement error: $e',
+      );
+    }
   }
 
   void _handleIncomingRequest(PaymentRequest request) {
@@ -385,6 +478,7 @@ class OfflinePaymentController extends StateNotifier<OfflinePaymentState> {
           _shortKid(sender['kid'] as String? ?? 'unknown'),
       memo: null,
       ackSignature: ackSignature,
+      jws: jws,
     );
   }
 

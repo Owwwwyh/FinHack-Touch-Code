@@ -16,6 +16,7 @@ class OfflineTransfer {
     this.memo,
     this.rejectReason,
     this.ackSignature,
+    this.jws,
   });
 
   final String txId;
@@ -27,6 +28,7 @@ class OfflineTransfer {
   final String? memo;
   final String? rejectReason;
   final String? ackSignature;
+  final String? jws;
 
   String get amountLabel => _formatMyR(amountCents);
 
@@ -50,6 +52,7 @@ class OfflineTransfer {
       amountCents: amountCents,
       receiverKid: receiverKid,
       createdAt: createdAt,
+      jws: jws,
       status: status ?? this.status,
       counterpartyLabel: counterpartyLabel ?? this.counterpartyLabel,
       memo: memo ?? this.memo,

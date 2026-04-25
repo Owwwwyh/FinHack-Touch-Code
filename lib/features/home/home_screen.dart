@@ -55,6 +55,20 @@ class HomeScreen extends ConsumerWidget {
       },
     );
 
+    ref.listen(
+      offlinePaymentControllerProvider.select((state) => state.settleMessage),
+      (previous, next) {
+        if (next != null && next.isNotEmpty && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(next)),
+          );
+          ref
+              .read(offlinePaymentControllerProvider.notifier)
+              .clearSettleMessage();
+        }
+      },
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Offline Wallet Home'),
@@ -206,7 +220,9 @@ class HomeScreen extends ConsumerWidget {
               payments: payments,
               hasNetwork: connectivity.hasNetwork,
               onSettle: connectivity.hasNetwork
-                  ? connectivityService.markSyncSuccess
+                  ? () => ref
+                      .read(offlinePaymentControllerProvider.notifier)
+                      .settleOutbox()
                   : null,
             ),
           ],
