@@ -13,12 +13,13 @@ from aws_lambda.settle_batch.handler import (
     handler as settle_batch_handler,
     reset_demo_state as _reset_settle_demo_state,
 )
+from lib.aws_secrets import resolve_secret_env
 from lib.bridge_auth import verify_body
 
 
 def handler(event, context):  # noqa: ANN001
     raw_body = _extract_body(event)
-    secret = os.environ.get("AWS_BRIDGE_HMAC_SECRET", "")
+    secret = resolve_secret_env("AWS_BRIDGE_HMAC_SECRET")
     signature = _header(event, "x-tng-signature")
 
     if secret and not verify_body(secret, raw_body, signature):

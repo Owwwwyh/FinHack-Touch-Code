@@ -12,7 +12,7 @@ from lib.settlement_events import encode_event
 
 class _FakeResponse:
     status_code = 200
-    text = '{"status":"accepted"}'
+    body = '{"status":"accepted"}'
 
 
 def test_posts_signed_payload_to_alibaba(monkeypatch):
@@ -31,11 +31,14 @@ def test_posts_signed_payload_to_alibaba(monkeypatch):
         captured["data"] = data
         captured["headers"] = headers
         captured["timeout"] = timeout
-        return _FakeResponse()
+        return {
+            "status_code": _FakeResponse.status_code,
+            "body": _FakeResponse.body,
+        }
 
     monkeypatch.setenv("ALIBABA_INGEST_URL", "https://alibaba.example/internal")
     monkeypatch.setenv("AWS_BRIDGE_HMAC_SECRET", "shared-secret")
-    monkeypatch.setattr(mod.requests, "post", fake_post)
+    monkeypatch.setattr(mod, "_post", fake_post)
 
     response = mod.handler(event, None)
 

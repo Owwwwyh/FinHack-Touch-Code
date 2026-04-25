@@ -175,7 +175,7 @@ def _reserve_nonce(nonce: str, tx_id: str, iat: int | None) -> bool:
             Item={
                 "nonce": {"S": nonce},
                 "tx_id": {"S": tx_id},
-                "ttl": {"N": str(ttl)},
+                "expires_at": {"N": str(ttl)},
             },
             ConditionExpression="attribute_not_exists(nonce)",
         )
@@ -223,6 +223,7 @@ def _write_ledger(
     ddb_item = {
         "tx_id": {"S": tx_id},
         "kid": {"S": item["kid"]},
+        "kid_iat": {"S": f"{item['kid']}#{item['iat']}"},
         "iat": {"N": str(item["iat"])},
         "nonce": {"S": item["nonce"]},
         "amount_cents": {"N": str(item["amount_cents"])},

@@ -36,9 +36,12 @@ resource "aws_cognito_user_pool" "tng" {
     required            = false
   }
 
-  # Pre-signup Lambda to auto-approve and assign tier 1
-  lambda_config {
-    pre_sign_up = var.pre_signup_lambda_arn
+  dynamic "lambda_config" {
+    for_each = trimspace(var.pre_signup_lambda_arn) != "" ? [1] : []
+
+    content {
+      pre_sign_up = var.pre_signup_lambda_arn
+    }
   }
 
   user_attribute_update_settings {

@@ -20,9 +20,9 @@ locally or on real cloud resources, not when a spec or Terraform contract exists
 | Android path | `working locally` | `./gradlew app:compileDebugKotlin` passes |
 | Local backend | `working locally` | `python3 -m pytest backend/tests tests` passes; `backend/server.py` serves the local `/v1` API |
 | AWS foundation | `partially deployable` | `s3`, `dynamodb`, `kms`, `cognito`, `eventbridge`, `secrets` are real Terraform resources |
-| AWS compute deploy | `blocked` | `infra/aws/lambda` and `infra/aws/apigw` are scaffold-only `terraform_data` contracts |
+| AWS compute deploy | `deployable from repo` | real Lambda/API Gateway Terraform exists now; still needs package build, apply, and smoke test |
 | Alibaba foundation | `partially deployable` | `oss` and `tablestore` are real Terraform resources |
-| Alibaba compute deploy | `blocked` | `infra/alibaba/fc`, `infra/alibaba/apigw`, and `infra/alibaba/eas` are scaffold-only `terraform_data` contracts |
+| Alibaba compute deploy | `blocked` | compute modules are still scaffold-only, and the root is currently pinned to `aliyun/alibabacloudstack` |
 | Live cross-cloud smoke test | `not done` | requires real compute resources on both clouds |
 
 ## 2. Tracks & agent tags
@@ -57,7 +57,7 @@ locally or on real cloud resources, not when a spec or Terraform contract exists
 
 ### `agent:cloud-aws-1` — Finish deployable AWS compute
 **Spec:** [docs/05-aws-services.md](05-aws-services.md), [docs/13-deployment.md](13-deployment.md)
-**Current blocker:** `infra/aws/lambda/main.tf` and `infra/aws/apigw/main.tf` only publish `terraform_data` contracts today.
+**Current blocker:** infra is now real, but it still needs `./infra/aws/lambda/build_package.sh`, `terraform apply`, and live smoke tests.
 **Tasks:**
 1. Replace the scaffold Lambda contract with real `aws_lambda_function`, IAM role/policy, and log group resources.
 2. Package `backend/aws_lambda/settle_batch`, `backend/aws_lambda/eb_cross_cloud_bridge_in`, and `backend/aws_lambda/eb_cross_cloud_bridge_out`.
@@ -68,7 +68,7 @@ locally or on real cloud resources, not when a spec or Terraform contract exists
 
 ### `agent:cloud-ali-1` — Finish deployable Alibaba compute
 **Spec:** [docs/06-alibaba-services.md](06-alibaba-services.md), [docs/13-deployment.md](13-deployment.md)
-**Current blocker:** `infra/alibaba/fc/main.tf`, `infra/alibaba/apigw/main.tf`, and `infra/alibaba/eas/main.tf` only publish `terraform_data` contracts today.
+**Current blocker:** the compute modules are still scaffold-only, and the Alibaba root is currently pinned to `aliyun/alibabacloudstack`, which is a poor fit for an unvalidated public-cloud FC/API Gateway/EAS rollout.
 **Tasks:**
 1. Replace the scaffold FC module with real Function Compute service/function resources.
 2. Replace the scaffold API Gateway module with real public route bindings.
@@ -128,7 +128,7 @@ All of:
 - [x] `flutter test` green
 - [x] `python3 -m pytest backend/tests tests` green
 - [x] `./gradlew app:compileDebugKotlin` green
-- [ ] AWS scaffold modules replaced by real deploy resources
+- [x] AWS scaffold modules replaced by real deploy resources
 - [ ] Alibaba scaffold modules replaced by real deploy resources
 - [ ] Public deployed endpoint responds to wallet/score/settle routes
 - [ ] AWS ledger records a real settlement and rejects replay

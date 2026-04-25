@@ -121,6 +121,12 @@ variable "aws_bridge_custom_domain" {
   default     = ""
 }
 
+variable "aws_bridge_custom_domain_certificate_arn" {
+  description = "Optional ACM certificate ARN for the AWS bridge custom domain"
+  type        = string
+  default     = ""
+}
+
 variable "stepfunctions_arn" {
   description = "Optional Step Functions ARN for model publish events"
   type        = string
@@ -129,6 +135,12 @@ variable "stepfunctions_arn" {
 
 variable "dlq_arn" {
   description = "Optional dead-letter queue ARN for EventBridge rules"
+  type        = string
+  default     = ""
+}
+
+variable "lambda_package_zip" {
+  description = "Path to the packaged shared AWS Lambda zip built by infra/aws/lambda/build_package.sh"
   type        = string
   default     = ""
 }
@@ -171,10 +183,13 @@ module "lambda" {
   dynamo_ledger_table_name        = module.dynamodb.token_ledger_table_name
   dynamo_nonce_table_name         = module.dynamodb.nonce_seen_table_name
   dynamo_pubkey_cache_table_name  = module.dynamodb.pubkey_cache_table_name
-  cross_cloud_bus_name            = "tng-cross-cloud"
+  cross_cloud_bus_name            = local.cross_cloud_bus_name
   models_bucket_name              = module.s3.models_bucket_name
   alibaba_ingest_url_secret_name  = module.secrets.alibaba_ingest_secret_name
+  alibaba_ingest_url_secret_arn   = module.secrets.alibaba_ingest_secret_arn
   bridge_hmac_secret_name         = module.secrets.bridge_hmac_secret_name
+  bridge_hmac_secret_arn          = module.secrets.bridge_hmac_secret_arn
+  lambda_package_zip              = var.lambda_package_zip
 }
 
 module "cognito" {
@@ -193,14 +208,17 @@ module "eventbridge" {
   bridge_out_lambda_arn = module.lambda.eb_cross_cloud_bridge_out_arn
   stepfunctions_arn     = var.stepfunctions_arn
   dlq_arn               = var.dlq_arn
+  cross_cloud_bus_name  = local.cross_cloud_bus_name
 }
 
 module "apigw" {
   source = "./apigw"
 
-  aws_region            = var.aws_region
-  custom_domain         = var.aws_bridge_custom_domain
-  bridge_in_lambda_name = module.lambda.eb_cross_cloud_bridge_in_name
+  aws_region                        = var.aws_region
+  custom_domain                     = var.aws_bridge_custom_domain
+  custom_domain_certificate_arn     = var.aws_bridge_custom_domain_certificate_arn
+  bridge_in_lambda_name             = module.lambda.eb_cross_cloud_bridge_in_name
+  bridge_in_lambda_invoke_arn       = module.lambda.eb_cross_cloud_bridge_in_invoke_arn
 }
 
 # Outputs
@@ -234,7 +252,8 @@ output "cognito_jwks_uri" {
 
 # Local values
 locals {
-  project    = "${var.project_prefix}-${var.app_name}"
+  project              = "${var.project_prefix}-${var.app_name}"
+  cross_cloud_bus_name = "${var.project_prefix}-${var.app_name}-cross-cloud"
   common_tags = {
     Project = "tng-finhack"
     Env     = var.environment
