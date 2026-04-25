@@ -1,5 +1,5 @@
-name: tng_clone_flutter
-description: Flutter Android clone of the Touch 'n Go style wallet app UI.
+name: tng_finhack_wallet
+description: TNG Offline Wallet — FINHACK 2026. Pay anywhere, even without a network.
 publish_to: "none"
 version: 1.0.0+1
 
@@ -10,10 +10,58 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # State management
+  flutter_riverpod: ^2.5.1
+
+  # Navigation
+  go_router: ^14.0.0
+
+  # Networking
+  dio: ^5.4.3
+
+  # Local database (offline outbox/inbox/cache)
+  drift: ^2.18.0
+  drift_flutter: ^0.1.0
+  sqlite3_flutter_libs: ^0.5.0
+  path_provider: ^2.1.3
+
+  # Secure storage for non-key secrets
+  flutter_secure_storage: ^9.2.0
+
+  # Ed25519 (verify side; signing via Android Keystore Kotlin bridge)
+  cryptography: ^2.7.0
+
+  # NFC reader-mode (sender side)
+  flutter_nfc_kit: ^3.5.0
+
+  # Connectivity monitoring
+  connectivity_plus: ^6.0.3
+
+  # Biometric / PIN unlock
+  local_auth: ^2.2.0
+
+  # i18n
+  intl: ^0.19.0
+
+  # Serialization / code-gen annotations
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+  # UUIDs
+  uuid: ^4.4.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.2
+  build_runner: ^2.4.10
+  drift_dev: ^2.18.0
+  freezed: ^2.5.2
+  json_serializable: ^6.8.0
+  mocktail: ^1.0.3
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/models/
+    - assets/images/

@@ -1,0 +1,22 @@
+{
+  "name": "tng-finhack-backend",
+  "version": "1.0.0",
+  "description": "TNG Offline Wallet — backend Lambda/FC handlers",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "start": "node fc/server.js"
+  },
+  "dependencies": {
+    "@noble/ed25519": "^2.1.0",
+    "@noble/hashes": "^2.2.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "transform": {}
+  }
+}
