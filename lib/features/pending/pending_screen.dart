@@ -1,9 +1,11 @@
 // lib/features/pending/pending_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/providers/mode_provider.dart';
 
-class PendingScreen extends StatelessWidget {
+class PendingScreen extends ConsumerWidget {
   const PendingScreen({super.key});
 
   static const _demoOutbox = [
@@ -16,10 +18,14 @@ class PendingScreen extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isOffline = ref.watch(modeProvider) == AppMode.offline;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pending Tokens'),
+        backgroundColor: isOffline ? AppTheme.offlineGrey : null,
+        foregroundColor: isOffline ? Colors.white : null,
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/home')),
       ),
       body: ListView(

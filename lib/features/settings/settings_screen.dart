@@ -1,8 +1,10 @@
 // lib/features/settings/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/di/providers.dart';
+import '../../core/providers/mode_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -10,9 +12,18 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final simMode = ref.watch(nfcSimModeProvider);
+    final isOffline = ref.watch(modeProvider) == AppMode.offline;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(
+        title: const Text('Me'),
+        backgroundColor: isOffline ? AppTheme.offlineGrey : null,
+        foregroundColor: isOffline ? Colors.white : null,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back), 
+          onPressed: () => context.go('/home')
+        ),
+      ),
       body: ListView(
         children: [
           const Padding(

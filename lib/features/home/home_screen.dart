@@ -54,16 +54,38 @@ class HomeScreen extends ConsumerWidget {
                         const Text('eWallet Balance',
                           style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
                         const Spacer(),
-                        Row(
-                          children: [
-                            Text(isOffline ? 'Offline Mode' : 'Online Mode', 
-                               style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                            Switch(
-                              value: demoMode == AppMode.online,
-                              activeColor: Colors.greenAccent,
-                              onChanged: (val) => ref.read(modeProvider.notifier).toggleMode(),
+                        // ── Online/Offline WiFi Toggle Button ──────────────────
+                        GestureDetector(
+                          onTap: () => ref.read(modeProvider.notifier).toggleMode(),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isOffline ? Colors.white.withValues(alpha: 0.1) : Colors.greenAccent.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isOffline ? Colors.white24 : Colors.greenAccent.withValues(alpha: 0.5),
+                              ),
                             ),
-                          ],
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isOffline ? Icons.wifi_off : Icons.wifi,
+                                  color: isOffline ? Colors.white : Colors.greenAccent,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  isOffline ? 'OFFLINE' : 'ONLINE',
+                                  style: TextStyle(
+                                    color: isOffline ? Colors.white : Colors.greenAccent,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -203,14 +225,8 @@ class _ActionCard extends StatelessWidget {
             _ActionBtn(
               icon: Icons.call_received,
               label: 'Receive',
-              color: isOffline ? AppTheme.offlineGrey : AppTheme.settled,
-              onTap: () {
-                if (isOffline) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Receive not available offline')));
-                } else {
-                  context.go('/receive');
-                }
-              },
+              color: AppTheme.settled, // Always colorful
+              onTap: () => context.go('/receive'), // Accessible in offline
             ),
             Stack(
               clipBehavior: Clip.none,
@@ -218,8 +234,8 @@ class _ActionCard extends StatelessWidget {
                 _ActionBtn(
                   icon: Icons.pending_actions_outlined,
                   label: 'Pending',
-                  color: AppTheme.pending,
-                  onTap: () => context.go('/pending'),
+                  color: AppTheme.pending, // Always colorful
+                  onTap: () => context.go('/pending'), // Accessible in offline
                 ),
                 if (pending > 0)
                   Positioned(
