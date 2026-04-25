@@ -18,19 +18,19 @@ class ConnectivityViewState {
   final int consecutiveSyncFailures;
 
   String bannerText(DateTime now) {
-    final minutes = _syncAgeMinutes(now);
+    final minutes = syncAgeMinutes(now);
 
     switch (tier) {
       case ConnectivityTier.online:
         return 'Online · synced ${minutes ?? 0} min ago';
       case ConnectivityTier.stale:
-        return 'Stale · cached balance ${minutes ?? '?'} min old';
+        return 'Stale · last sync ${minutes ?? '?'} min ago';
       case ConnectivityTier.offline:
-        return 'Offline · using AI safe balance';
+        return 'Offline · last sync ${minutes ?? '?'} min ago';
     }
   }
 
-  int? _syncAgeMinutes(DateTime now) {
+  int? syncAgeMinutes(DateTime now) {
     if (lastSyncedAt == null) {
       return null;
     }

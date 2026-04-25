@@ -18,11 +18,24 @@ void main() {
       expect(tier, ConnectivityTier.online);
     });
 
-    test('drops to stale after sync failures or missing network', () {
+    test('drops to offline as soon as network is unavailable', () {
       const policy = ConnectivityPolicy();
       final now = DateTime(2026, 4, 25, 12, 0, 0);
       final tier = policy.evaluateTier(
         hasNetwork: false,
+        lastSyncedAt: now.subtract(const Duration(minutes: 2)),
+        consecutiveSyncFailures: 0,
+        now: now,
+      );
+
+      expect(tier, ConnectivityTier.offline);
+    });
+
+    test('keeps stale state when sync fails repeatedly with fresh cache', () {
+      const policy = ConnectivityPolicy();
+      final now = DateTime(2026, 4, 25, 12, 0, 0);
+      final tier = policy.evaluateTier(
+        hasNetwork: true,
         lastSyncedAt: now.subtract(const Duration(minutes: 2)),
         consecutiveSyncFailures: 3,
         now: now,
@@ -59,7 +72,7 @@ void main() {
 
       service.setNetworkAvailable(false);
       expect(service.state.hasNetwork, isFalse);
-      expect(service.state.tier, ConnectivityTier.stale);
+      expect(service.state.tier, ConnectivityTier.offline);
 
       service.ageLastSyncBy(const Duration(minutes: 11));
       expect(service.state.tier, ConnectivityTier.offline);

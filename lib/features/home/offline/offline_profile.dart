@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../domain/services/credit_scorer.dart';
+
 class OfflineProfile extends StatelessWidget {
   const OfflineProfile({
     super.key,
@@ -7,11 +9,27 @@ class OfflineProfile extends StatelessWidget {
     required this.aiSafeBalance,
     required this.lastSync,
     required this.onRefresh,
+    required this.policyVersion,
+    required this.modelVersion,
+    required this.confidence,
+    required this.pendingOutgoingCents,
+    required this.lifetimeTransactionCount,
+    required this.isAiEligible,
+    required this.modeLabel,
+    required this.drivers,
   });
   final double offlineCap;
   final double aiSafeBalance;
   final String lastSync;
   final VoidCallback onRefresh;
+  final String policyVersion;
+  final String modelVersion;
+  final double confidence;
+  final int pendingOutgoingCents;
+  final int lifetimeTransactionCount;
+  final bool isAiEligible;
+  final String modeLabel;
+  final List<CreditScoreDriver> drivers;
 
   @override
   Widget build(BuildContext context) {
@@ -126,6 +144,7 @@ class OfflineProfile extends StatelessWidget {
                   children: [
                     Text(
                       'RM ${aiSafeBalance.toStringAsFixed(2)}',
+                      key: const ValueKey('ai-score-balance'),
                       style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
@@ -139,10 +158,111 @@ class OfflineProfile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Calculated from your spending pattern, history & credit score.',
+                Text(
+                  isAiEligible
+                      ? '$modeLabel · ${(confidence * 100).round()}% confidence'
+                      : 'Reload your manual offline wallet until you reach 600 lifetime transactions.',
                   style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
                 ),
+                const SizedBox(height: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFFFF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE9D5FF)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.memory,
+                          color: Color(0xFF7C3AED), size: 14),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Model $modelVersion · Policy $policyVersion',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF5B21B6),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (pendingOutgoingCents > 0) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.access_time,
+                            color: Color(0xFFB45309), size: 14),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'RM ${(pendingOutgoingCents / 100).toStringAsFixed(2)} reserved for pending settlement',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF92400E),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                if (drivers.isNotEmpty)
+                  Column(
+                    children: drivers.take(4).map((driver) {
+                      final tone = driver.isPositive
+                          ? const Color(0xFF059669)
+                          : const Color(0xFFB45309);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            Icon(
+                              driver.isPositive
+                                  ? Icons.trending_up
+                                  : Icons.schedule,
+                              color: tone,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                driver.label,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF334155),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              driver.value,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: tone,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
               ],
             ),
           ),
@@ -153,10 +273,17 @@ class OfflineProfile extends StatelessWidget {
                   label: 'Offline Cap',
                   value: 'RM ${offlineCap.toStringAsFixed(2)}'),
               const SizedBox(width: 8),
-              const _StatCell(label: 'NFC ID', value: '#A4F2', icon: Icons.tag),
+              _StatCell(
+                label: 'Lifetime Tx',
+                value: '$lifetimeTransactionCount',
+                icon: Icons.bar_chart_rounded,
+              ),
               const SizedBox(width: 8),
-              const _StatCell(
-                  label: 'Card', value: '••4821', icon: Icons.credit_card),
+              _StatCell(
+                label: 'Mode',
+                value: isAiEligible ? 'AI active' : 'Manual',
+                icon: Icons.auto_awesome,
+              ),
             ],
           ),
         ],

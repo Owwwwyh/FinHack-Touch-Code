@@ -47,12 +47,34 @@ void main() {
 
     await tester.tap(find.text('Continue to Home'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Request Payment'), 200);
 
     expect(find.text('Offline Wallet Home'), findsOneWidget);
     expect(find.text('Latest cached balance'), findsOneWidget);
+    expect(find.text('AI SAFE BALANCE'), findsOneWidget);
     expect(find.text('Get latest balance'), findsOneWidget);
     expect(find.text('Request Payment'), findsOneWidget);
     expect(find.text('Receive Inbox'), findsOneWidget);
+    expect(find.text('RM 120.00'), findsWidgets);
+  });
+
+  testWidgets('Home screen flips to offline state and shows safe balance first',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(_buildApp(bridge, signingService));
+    await tester.pump(const Duration(milliseconds: 950));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Continue to Home'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Go offline'));
+    await tester.pumpAndSettle();
+
+    expect(
+        find.textContaining('Offline · last sync 0 min ago'), findsOneWidget);
+    expect(find.text('Safe offline balance'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Reconnect to refresh'), 200);
+    expect(find.text('Reconnect to refresh'), findsOneWidget);
   });
 
   testWidgets('Merchant tap 1 sends request and opens waiting screen',
@@ -63,6 +85,7 @@ void main() {
 
     await tester.tap(find.text('Continue to Home'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Request Payment'), 200);
     await tester.tap(find.text('Request Payment'));
     await tester.pumpAndSettle();
 
@@ -106,6 +129,12 @@ void main() {
     expect(bridge.lastCompletedJws, equals('header.payload.signature'));
     expect(find.text('Payment sent'), findsWidgets);
     expect(find.textContaining('Pending settlement'), findsOneWidget);
+
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Offline Wallet Home'), findsOneWidget);
+    expect(find.text('RM 111.50'), findsWidgets);
   });
 
   testWidgets('Pay confirm disables authorization above safe balance',

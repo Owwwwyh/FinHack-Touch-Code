@@ -8,9 +8,14 @@ import '../../core/nfc/offline_nfc_bridge.dart';
 import '../../domain/models/offline_transfer.dart';
 import '../../domain/models/payment_request.dart';
 import '../../domain/services/offline_pay_policy.dart';
+import '../home/offline/offline_score_provider.dart';
 
 final offlinePayPolicyProvider = Provider<OfflinePayPolicy>((ref) {
-  return const OfflinePayPolicy();
+  final score = ref.watch(baseOfflineScoreProvider);
+  return OfflinePayPolicy(
+    safeOfflineBalanceCents: score.safeOfflineBalanceCents,
+    policyVersion: score.policyVersion,
+  );
 });
 
 final offlineSigningServiceProvider = Provider<OfflineSigningService>((ref) {
@@ -32,7 +37,7 @@ final offlinePaymentControllerProvider =
   final controller = OfflinePaymentController(
     nfcBridge: ref.watch(offlineNfcBridgeProvider),
     signingService: ref.watch(offlineSigningServiceProvider),
-    policy: ref.watch(offlinePayPolicyProvider),
+    readPolicy: () => ref.read(offlinePayPolicyProvider),
     now: ref.watch(offlineNowProvider),
   );
   return controller;
@@ -125,11 +130,11 @@ class OfflinePaymentController extends StateNotifier<OfflinePaymentState> {
   OfflinePaymentController({
     required OfflineNfcBridge nfcBridge,
     required OfflineSigningService signingService,
-    required OfflinePayPolicy policy,
+    required OfflinePayPolicy Function() readPolicy,
     required DateTime Function() now,
   })  : _nfcBridge = nfcBridge,
         _signingService = signingService,
-        _policy = policy,
+        _readPolicy = readPolicy,
         _now = now,
         super(const OfflinePaymentState()) {
     _requestSubscription = _nfcBridge.paymentRequests.listen(
@@ -150,7 +155,7 @@ class OfflinePaymentController extends StateNotifier<OfflinePaymentState> {
 
   final OfflineNfcBridge _nfcBridge;
   final OfflineSigningService _signingService;
-  final OfflinePayPolicy _policy;
+  final OfflinePayPolicy Function() _readPolicy;
   final DateTime Function() _now;
 
   StreamSubscription<PaymentRequest>? _requestSubscription;
@@ -218,10 +223,13 @@ class OfflinePaymentController extends StateNotifier<OfflinePaymentState> {
       return false;
     }
 
-    if (request.amountCents > _policy.safeOfflineBalanceCents) {
+    final policy = _readPolicy();
+    final availableSafeBalanceCents = _availableSafeBalanceCents(policy);
+
+    if (request.amountCents > availableSafeBalanceCents) {
       state = state.copyWith(
         errorMessage:
-            'Amount exceeds your safe offline balance of ${_formatMyr(_policy.safeOfflineBalanceCents)}.',
+            'Amount exceeds your safe offline balance of ${_formatMyr(availableSafeBalanceCents)}.',
       );
       return false;
     }
@@ -233,9 +241,14 @@ class OfflinePaymentController extends StateNotifier<OfflinePaymentState> {
     );
 
     try {
+      final effectivePolicy = OfflinePayPolicy(
+        safeOfflineBalanceCents: availableSafeBalanceCents,
+        receiverKid: policy.receiverKid,
+        policyVersion: policy.policyVersion,
+      );
       final signedToken = await _signingService.signPayment(
         request: request,
-        policy: _policy,
+        policy: effectivePolicy,
       );
       state = state.copyWith(
         isSigning: false,
@@ -386,6 +399,24 @@ class OfflinePaymentController extends StateNotifier<OfflinePaymentState> {
       return kid;
     }
     return '…${kid.substring(kid.length - 6)}';
+  }
+
+  int _availableSafeBalanceCents(OfflinePayPolicy policy) {
+    return (policy.safeOfflineBalanceCents - _pendingOutgoingCents())
+        .clamp(0, policy.safeOfflineBalanceCents);
+  }
+
+  int _pendingOutgoingCents() {
+    return state.outbox
+        .where(
+          (transfer) =>
+              transfer.status != OfflineTransferStatus.rejected &&
+              transfer.status != OfflineTransferStatus.settled,
+        )
+        .fold<int>(
+          0,
+          (total, transfer) => total + transfer.amountCents,
+        );
   }
 
   @override

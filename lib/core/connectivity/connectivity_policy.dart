@@ -13,8 +13,12 @@ class ConnectivityPolicy {
     required int consecutiveSyncFailures,
     required DateTime now,
   }) {
+    if (!hasNetwork) {
+      return ConnectivityTier.offline;
+    }
+
     if (lastSyncedAt == null) {
-      return hasNetwork ? ConnectivityTier.stale : ConnectivityTier.offline;
+      return ConnectivityTier.stale;
     }
 
     final age = now.difference(lastSyncedAt);
@@ -24,7 +28,7 @@ class ConnectivityPolicy {
       return ConnectivityTier.offline;
     }
 
-    if (!hasNetwork || consecutiveSyncFailures >= 3) {
+    if (consecutiveSyncFailures >= 3) {
       return ConnectivityTier.stale;
     }
 

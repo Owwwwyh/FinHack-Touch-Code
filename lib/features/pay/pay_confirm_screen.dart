@@ -1,9 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router/route_paths.dart';
 import '../../domain/models/offline_transfer.dart';
+import '../home/offline/offline_score_provider.dart';
 import '../offline/offline_payment_controller.dart';
 
 class PayConfirmScreen extends ConsumerWidget {
@@ -14,8 +17,11 @@ class PayConfirmScreen extends ConsumerWidget {
     final state = ref.watch(offlinePaymentControllerProvider);
     final notifier = ref.read(offlinePaymentControllerProvider.notifier);
     final request = state.incomingRequest;
-    final policy = ref.watch(offlinePayPolicyProvider);
+    final score = ref.watch(baseOfflineScoreProvider);
     final latestReceipt = state.latestOutgoingReceipt;
+    final pendingOutgoingCents = _pendingOutgoingCents(state.outbox);
+    final availableSafeBalanceCents = score.availableSafeBalanceCents(
+        pendingOutgoingCents: pendingOutgoingCents);
 
     ref.listen(
       offlinePaymentControllerProvider.select((value) => value.errorMessage),
@@ -62,8 +68,11 @@ class PayConfirmScreen extends ConsumerWidget {
     }
 
     final canAuthorize = !request.isExpired(DateTime.now()) &&
-        request.amountCents <= policy.safeOfflineBalanceCents;
-    final afterPayment = policy.safeOfflineBalanceCents - request.amountCents;
+        request.amountCents <= availableSafeBalanceCents;
+    final afterPayment = math.max(
+      0,
+      availableSafeBalanceCents - request.amountCents,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Pay Confirm')),
@@ -96,11 +105,20 @@ class PayConfirmScreen extends ConsumerWidget {
                   ],
                   const SizedBox(height: 16),
                   Text(
-                    'Safe offline balance: ${_formatMyr(policy.safeOfflineBalanceCents)}',
+                    'Safe offline balance: ${_formatMyr(availableSafeBalanceCents)}',
                   ),
                   Text(
-                    'After payment: ${_formatMyr(afterPayment < 0 ? 0 : afterPayment)}',
+                    'After payment: ${_formatMyr(afterPayment)}',
                   ),
+                  Text(
+                    'Policy ${score.policyVersion} · model ${score.modelVersion}',
+                  ),
+                  if (pendingOutgoingCents > 0) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '${_formatMyr(pendingOutgoingCents)} already queued for settlement.',
+                    ),
+                  ],
                   if (!canAuthorize) ...[
                     const SizedBox(height: 12),
                     Text(
@@ -218,4 +236,17 @@ String _formatMyr(int cents) {
   final whole = cents ~/ 100;
   final fraction = (cents % 100).toString().padLeft(2, '0');
   return 'RM $whole.$fraction';
+}
+
+int _pendingOutgoingCents(List<OfflineTransfer> outbox) {
+  return outbox
+      .where(
+        (transfer) =>
+            transfer.status != OfflineTransferStatus.rejected &&
+            transfer.status != OfflineTransferStatus.settled,
+      )
+      .fold<int>(
+        0,
+        (total, transfer) => total + transfer.amountCents,
+      );
 }
