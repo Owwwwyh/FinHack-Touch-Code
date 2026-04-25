@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
+from lib import demo_state
 from lib.jwt_middleware import JwtVerificationError, get_jwt_middleware
 
 logger = logging.getLogger()
@@ -53,16 +54,7 @@ def handler(environ, start_response):
     # Read from Tablestore
     endpoint = os.environ.get("TABLESTORE_ENDPOINT", "")
     if not endpoint:
-        # Demo fallback
-        body = {
-            "user_id": user_id,
-            "balance_myr": "248.50",
-            "currency": "MYR",
-            "version": 1,
-            "as_of": datetime.now(timezone.utc).isoformat(),
-            "safe_offline_balance_myr": "50.00",
-            "policy_version": "v3.2026-04-22",
-        }
+        body = demo_state.get_wallet_response(user_id)
         start_response("200 OK", [
             ("Content-Type", "application/json; charset=utf-8"),
             ("X-Request-Id", request_id),
