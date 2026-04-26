@@ -22,8 +22,13 @@ variable "route_map" {
   }))
 }
 
+variable "public_api_url" {
+  type    = string
+  default = ""
+}
+
 output "public_api_base_url" {
-  value = ""
+  value = var.public_api_url
 }
 
 output "route_map" {

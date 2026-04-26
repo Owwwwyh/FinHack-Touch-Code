@@ -1,3 +1,5 @@
+enum DemoRole { buyer, seller }
+
 class RoutePaths {
   const RoutePaths._();
 

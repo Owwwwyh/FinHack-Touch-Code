@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/router/route_paths.dart';
+import '../../app/router/route_paths.dart' show RoutePaths, DemoRole;
 import '../../core/connectivity/connectivity_provider.dart';
 import '../../core/connectivity/connectivity_state.dart';
 import '../../domain/models/offline_transfer.dart';
@@ -11,6 +11,7 @@ import 'offline/offline_score_provider.dart';
 import '../../domain/services/credit_scorer.dart' show CreditScoreDecision;
 import 'offline/offline_banner.dart';
 import 'offline/nfc_pay_sheet.dart';
+import 'offline/buyer_nfc_sheet.dart';
 import 'offline/token_receipt.dart';
 import 'offline/pending_queue.dart' show PendingQueue, PendingTxn;
 import 'widgets/balance_card.dart';
@@ -32,6 +33,14 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _activeTab = 0;
   OfflineToken? _receipt;
+  late DemoRole _role;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final extra = GoRouterState.of(context).extra;
+    _role = extra is DemoRole ? extra : DemoRole.seller;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -177,8 +186,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           connectivity: connectivity,
                           payments: payments,
                           now: now,
-                          onNfcTap: () => _openNfcSheet(
-                              context, availableSafeBalanceCents / 100),
+                          role: _role,
+                          onNfcTap: () => _role == DemoRole.seller
+                              ? _openSellerSheet(
+                                  context, availableSafeBalanceCents / 100)
+                              : _openBuyerSheet(
+                                  context, availableSafeBalanceCents / 100),
                           onRequestPayment: () => context.go(RoutePaths.request),
                           onHistory: () => context.go(RoutePaths.history),
                           onRefresh: () {
@@ -215,7 +228,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Future<void> _openNfcSheet(BuildContext context, double balance) async {
+  Future<void> _openSellerSheet(BuildContext context, double balance) async {
     final token = await showModalBottomSheet<OfflineToken>(
       context: context,
       isScrollControlled: true,
@@ -225,6 +238,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: NfcPaySheet(balance: balance),
+      ),
+    );
+    if (token != null && mounted) {
+      setState(() => _receipt = token);
+    }
+  }
+
+  Future<void> _openBuyerSheet(BuildContext context, double balance) async {
+    final token = await showModalBottomSheet<OfflineToken>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: BuyerNfcSheet(
+          amount: 5.00,
+          merchantName: 'Aida Rahman',
+          balance: balance,
+        ),
       ),
     );
     if (token != null && mounted) {
@@ -243,6 +277,7 @@ class _OfflineBody extends StatelessWidget {
     required this.connectivity,
     required this.payments,
     required this.now,
+    required this.role,
     required this.onNfcTap,
     required this.onRequestPayment,
     required this.onHistory,
@@ -255,6 +290,7 @@ class _OfflineBody extends StatelessWidget {
   final ConnectivityViewState connectivity;
   final OfflinePaymentState payments;
   final DateTime now;
+  final DemoRole role;
   final VoidCallback onNfcTap;
   final VoidCallback onRequestPayment;
   final VoidCallback onHistory;
@@ -267,6 +303,8 @@ class _OfflineBody extends StatelessWidget {
             t.status != OfflineTransferStatus.settled &&
             t.status != OfflineTransferStatus.rejected)
         .toList();
+
+    final isBuyer = role == DemoRole.buyer;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -288,14 +326,15 @@ class _OfflineBody extends StatelessWidget {
           drivers: score.panelDrivers(pendingOutgoingCents: pendingOutgoingCents),
         ),
         const SizedBox(height: 16),
-        // Primary: Request via NFC
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: ElevatedButton.icon(
             onPressed: onNfcTap,
-            icon: const Icon(Icons.nfc, size: 24),
-            label: const Text('Request',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            icon: Icon(isBuyer ? Icons.payment : Icons.nfc, size: 24),
+            label: Text(
+              isBuyer ? 'Pay' : 'Request',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0066FF),
               foregroundColor: Colors.white,

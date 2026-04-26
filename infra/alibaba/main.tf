@@ -156,8 +156,9 @@ module "fc" {
 module "apigw" {
   source = "./apigw"
 
-  custom_domain = var.public_api_domain
-  route_map     = module.fc.routes
+  custom_domain  = var.public_api_domain
+  public_api_url = module.fc.public_api_url
+  route_map      = module.fc.routes
 }
 
 output "public_api_base_url" {

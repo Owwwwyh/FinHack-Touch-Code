@@ -25,11 +25,8 @@ class OfflineToken {
 enum _Stage {
   entry,
   tap1,
-  senderConfirm,
-  faceId,
-  verified,
-  tapMerchant,
-  transferring,
+  sellerWaiting,
+  sellerReceived,
 }
 
 class NfcPaySheet extends StatefulWidget {
@@ -66,49 +63,36 @@ class _NfcPaySheetState extends State<NfcPaySheet> {
     });
   }
 
-  // A presses Request → show tap-1 NFC animation
   void _sendRequest() {
     if (!_canPay) return;
     setState(() => _stage = _Stage.tap1);
   }
 
-  // After simulating tap 1 → show B's confirmation
   void _completeTap1() {
-    setState(() => _stage = _Stage.senderConfirm);
+    setState(() => _stage = _Stage.sellerWaiting);
   }
 
-  // Payer confirms → face ID
-  void _confirmSender() {
-    setState(() => _stage = _Stage.faceId);
-    Future.delayed(const Duration(milliseconds: 1800), () {
-      if (mounted) setState(() => _stage = _Stage.verified);
-    });
-    Future.delayed(const Duration(milliseconds: 2800), () {
-      if (mounted) setState(() => _stage = _Stage.tapMerchant);
-    });
+  void _receiveTap() {
+    HapticFeedback.mediumImpact();
+    setState(() => _stage = _Stage.sellerReceived);
   }
 
-  // Tap 2: payer taps back → generates token
-  void _tapMerchant() {
-    setState(() => _stage = _Stage.transferring);
-    Future.delayed(const Duration(milliseconds: 1800), () {
-      if (!mounted) return;
-      HapticFeedback.mediumImpact();
-      final rng = Random();
-      final now = DateTime.now();
-      final pad = (int v, int w) => v.toString().padLeft(w, '0');
-      final token = OfflineToken(
-        id: now.millisecondsSinceEpoch.toRadixString(16),
-        amount: _amount,
-        merchant: 'Aida Rahman',
-        receiverMac: 'NF:C0:AI:DA',
-        senderMac: 'A4:F2:9B:17',
-        timestamp:
-            '${now.year}-${pad(now.month, 2)}-${pad(now.day, 2)} ${pad(now.hour, 2)}:${pad(now.minute, 2)}',
-        signature: List.generate(32, (_) => rng.nextInt(16).toRadixString(16)).join(),
-      );
-      Navigator.pop(context, token);
-    });
+  void _doneSeller() {
+    HapticFeedback.mediumImpact();
+    final rng = Random();
+    final now = DateTime.now();
+    final pad = (int v, int w) => v.toString().padLeft(w, '0');
+    final token = OfflineToken(
+      id: now.millisecondsSinceEpoch.toRadixString(16),
+      amount: _amount,
+      merchant: 'Faiz Hassan',
+      receiverMac: 'NF:C0:AI:DA',
+      senderMac: 'A4:F2:9B:17',
+      timestamp:
+          '${now.year}-${pad(now.month, 2)}-${pad(now.day, 2)} ${pad(now.hour, 2)}:${pad(now.minute, 2)}',
+      signature: List.generate(32, (_) => rng.nextInt(16).toRadixString(16)).join(),
+    );
+    Navigator.pop(context, token);
   }
 
   @override
@@ -142,22 +126,10 @@ class _NfcPaySheetState extends State<NfcPaySheet> {
         );
       case _Stage.tap1:
         return _Tap1Stage(amount: _amount, onTap: _completeTap1);
-      case _Stage.senderConfirm:
-        return _SenderConfirmStage(
-          amount: _amount,
-          balance: widget.balance,
-          requesterName: 'Aida Rahman',
-          onClose: () => Navigator.pop(context),
-          onConfirm: _confirmSender,
-        );
-      case _Stage.faceId:
-        return const _FaceIdStage();
-      case _Stage.verified:
-        return const _VerifiedStage();
-      case _Stage.tapMerchant:
-        return _TapMerchantStage(amount: _amount, onTap: _tapMerchant);
-      case _Stage.transferring:
-        return const _TransferringStage();
+      case _Stage.sellerWaiting:
+        return _SellerWaitingStage(amount: _amount, onReceive: _receiveTap);
+      case _Stage.sellerReceived:
+        return _SellerReceivedStage(amount: _amount, onDone: _doneSeller);
     }
   }
 }
@@ -336,290 +308,127 @@ class _EntryStage extends StatelessWidget {
   }
 }
 
-// ─── Stage: Sender Confirm (Payer sees request) ──────────────────────────────
+// ─── Stage: Seller Waiting ───────────────────────────────────────────────────
 
-class _SenderConfirmStage extends StatelessWidget {
-  const _SenderConfirmStage({
-    required this.amount,
-    required this.balance,
-    required this.requesterName,
-    required this.onClose,
-    required this.onConfirm,
-  });
-
+class _SellerWaitingStage extends StatelessWidget {
+  const _SellerWaitingStage({required this.amount, required this.onReceive});
   final double amount;
-  final double balance;
-  final String requesterName;
-  final VoidCallback onClose;
-  final VoidCallback onConfirm;
+  final VoidCallback onReceive;
 
   @override
   Widget build(BuildContext context) {
-    final afterPayment = (balance - amount).clamp(0.0, double.infinity);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _DragHandle(),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text('Offline NFC · Tap 1 received',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-                Text('Confirm Payment',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF0F172A))),
-              ],
-            ),
-            const Spacer(),
-            _CloseButton(onTap: onClose),
-          ],
-        ),
-        const SizedBox(height: 16),
-        // Blue request card
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF0066FF), Color(0xFF0057E0)],
-            ),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.nfc, color: Colors.white70, size: 16),
-                  const SizedBox(width: 6),
-                  Text('Incoming NFC request from $requesterName',
-                      style: const TextStyle(fontSize: 12, color: Colors.white70)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(height: 1, color: Colors.white24),
-              const SizedBox(height: 12),
-              const Text('Amount to send',
-                  style: TextStyle(fontSize: 11, color: Colors.white70)),
-              const SizedBox(height: 4),
-              Text('RM ${amount.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      letterSpacing: -1)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Details card
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(16)),
-          child: Column(
-            children: [
-              _DetailLine('Paying to', requesterName),
-              _DetailLine('Available offline', 'RM ${balance.toStringAsFixed(2)}'),
-              _DetailLine('After payment',
-                  'RM ${afterPayment.toStringAsFixed(2)}',
-                  valueColor: const Color(0xFF059669)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            const Icon(Icons.verified_user_outlined,
-                size: 14, color: Color(0xFF059669)),
-            const SizedBox(width: 6),
-            const Text('Secured · Ed25519 signed offline token',
-                style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: onClose,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF475569),
-                  side: const BorderSide(color: Color(0xFFE2E8F0)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text('Cancel'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: onConfirm,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0066FF),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  elevation: 0,
-                ),
-                child: const Text('Confirm', style: TextStyle(fontWeight: FontWeight.w600)),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _DetailLine extends StatelessWidget {
-  const _DetailLine(this.label, this.value, {this.valueColor});
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onReceive,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8))),
-          const Spacer(),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: valueColor ?? const Color(0xFF0F172A))),
+          _DragHandle(),
+          const SizedBox(height: 40),
+          _GreenPulse(),
+          const SizedBox(height: 24),
+          Text('Waiting for RM ${amount.toStringAsFixed(2)} payment',
+              style: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF0F172A))),
+          const SizedBox(height: 6),
+          const Text('Hold your phone near the payer\'s device',
+              style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8))),
+          const SizedBox(height: 40),
         ],
       ),
     );
   }
 }
 
-// ─── Stage: Face ID ──────────────────────────────────────────────────────────
-
-class _FaceIdStage extends StatefulWidget {
-  const _FaceIdStage();
-
+class _GreenPulse extends StatefulWidget {
   @override
-  State<_FaceIdStage> createState() => _FaceIdStageState();
+  State<_GreenPulse> createState() => _GreenPulseState();
 }
 
-class _FaceIdStageState extends State<_FaceIdStage> with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _scan;
-  late final Animation<double> _pulse;
+class _GreenPulseState extends State<_GreenPulse> with TickerProviderStateMixin {
+  late final List<AnimationController> _ctrls;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600))
-      ..repeat(reverse: true);
-    _scan = Tween<double>(begin: 0.1, end: 0.9).animate(
-        CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
-    _pulse = Tween<double>(begin: 0.9, end: 1.08).animate(
-        CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _ctrls = List.generate(
+      3,
+      (_) => AnimationController(vsync: this, duration: const Duration(milliseconds: 1600)),
+    );
+    for (int i = 0; i < _ctrls.length; i++) {
+      Future.delayed(Duration(milliseconds: i * 500), () {
+        if (mounted) _ctrls[i].repeat();
+      });
+    }
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    for (final c in _ctrls) c.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _DragHandle(),
-        const SizedBox(height: 32),
-        AnimatedBuilder(
-          animation: _ctrl,
-          builder: (_, __) {
-            return SizedBox(
-              width: 140,
-              height: 140,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Dashed rotating border
-                  Transform.rotate(
-                    angle: _ctrl.value * 2 * 3.14159,
+    return SizedBox(
+      width: 144,
+      height: 144,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          for (final ctrl in _ctrls)
+            AnimatedBuilder(
+              animation: ctrl,
+              builder: (_, __) {
+                final v = ctrl.value;
+                return Opacity(
+                  opacity: ((1 - v) * 0.6).clamp(0.0, 1.0),
+                  child: Transform.scale(
+                    scale: 0.5 + v * 1.2,
                     child: Container(
-                      width: 140,
-                      height: 140,
+                      width: 144,
+                      height: 144,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                            color: const Color(0xFF3B82F6), width: 3),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFF059669), width: 2),
                       ),
                     ),
                   ),
-                  // Pulsing icon
-                  Transform.scale(
-                    scale: _pulse.value,
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(20)),
-                      child: const Icon(Icons.face_retouching_natural,
-                          size: 56, color: Color(0xFF2563EB)),
-                    ),
-                  ),
-                  // Scan line
-                  Positioned(
-                    top: 140 * _scan.value,
-                    left: 10,
-                    right: 10,
-                    child: Container(
-                      height: 2,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF3B82F6).withOpacity(0.7),
-                        borderRadius: BorderRadius.circular(1),
-                      ),
-                    ),
-                  ),
-                ],
+                );
+              },
+            ),
+          Container(
+            width: 88,
+            height: 88,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF059669), Color(0xFF047857)],
               ),
-            );
-          },
-        ),
-        const SizedBox(height: 20),
-        const Text('Scanning Face ID…',
-            style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF0F172A))),
-        const SizedBox(height: 6),
-        const Text('Verifying identity to authorize payment',
-            style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8))),
-        const SizedBox(height: 40),
-      ],
+            ),
+            child: const Icon(Icons.nfc, color: Colors.white, size: 44),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ─── Stage: Verified ─────────────────────────────────────────────────────────
+// ─── Stage: Seller Received ──────────────────────────────────────────────────
 
-class _VerifiedStage extends StatefulWidget {
-  const _VerifiedStage();
+class _SellerReceivedStage extends StatefulWidget {
+  const _SellerReceivedStage({required this.amount, required this.onDone});
+  final double amount;
+  final VoidCallback onDone;
 
   @override
-  State<_VerifiedStage> createState() => _VerifiedStageState();
+  State<_SellerReceivedStage> createState() => _SellerReceivedStageState();
 }
 
-class _VerifiedStageState extends State<_VerifiedStage> with SingleTickerProviderStateMixin {
+class _SellerReceivedStageState extends State<_SellerReceivedStage>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _scale;
 
@@ -628,8 +437,8 @@ class _VerifiedStageState extends State<_VerifiedStage> with SingleTickerProvide
     super.initState();
     _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 450));
     _scale = TweenSequence([
-      TweenSequenceItem(tween: Tween<double>(begin: 0, end: 1.2), weight: 60),
-      TweenSequenceItem(tween: Tween<double>(begin: 1.2, end: 1.0), weight: 40),
+      TweenSequenceItem(tween: Tween<double>(begin: 0, end: 1.15), weight: 60),
+      TweenSequenceItem(tween: Tween<double>(begin: 1.15, end: 1.0), weight: 40),
     ]).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
     _ctrl.forward();
   }
@@ -652,23 +461,62 @@ class _VerifiedStageState extends State<_VerifiedStage> with SingleTickerProvide
           builder: (_, __) => Transform.scale(
             scale: _scale.value,
             child: Container(
-              width: 96,
-              height: 96,
+              width: 88,
+              height: 88,
               decoration: const BoxDecoration(
                   color: Color(0xFF059669), shape: BoxShape.circle),
               child: const Icon(Icons.check_circle_outline,
-                  color: Colors.white, size: 56),
+                  color: Colors.white, size: 52),
             ),
           ),
         ),
-        const SizedBox(height: 20),
-        const Text('Identity Verified',
+        const SizedBox(height: 16),
+        const Text('Payment Received!',
             style: TextStyle(
-                fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+                fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
         const SizedBox(height: 6),
-        const Text('Payment authorized',
-            style: TextStyle(fontSize: 14, color: Color(0xFF059669))),
-        const SizedBox(height: 40),
+        Text('RM ${widget.amount.toStringAsFixed(2)} from Faiz Hassan',
+            style: const TextStyle(fontSize: 14, color: Color(0xFF059669))),
+        const SizedBox(height: 20),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0FDF4),
+            border: Border.all(color: const Color(0xFFBBF7D0)),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.verified_user_outlined,
+                  size: 16, color: Color(0xFF059669)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Ed25519 signed token received · will settle when online',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF166534), height: 1.4),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: ElevatedButton(
+            onPressed: widget.onDone,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF059669),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              elevation: 0,
+            ),
+            child: const Text('Done',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+          ),
+        ),
+        const SizedBox(height: 8),
       ],
     );
   }
@@ -723,101 +571,6 @@ class _Tap1Stage extends StatelessWidget {
             ),
           ),
         ),
-      ],
-    );
-  }
-}
-
-// ─── Stage: Tap Merchant (Payer taps back — Tap 2) ───────────────────────────
-
-class _TapMerchantStage extends StatelessWidget {
-  const _TapMerchantStage({required this.amount, required this.onTap});
-  final double amount;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _DragHandle(),
-        const SizedBox(height: 12),
-        const Text('Offline NFC · Tap 2',
-            style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-        const SizedBox(height: 4),
-        const Text('Tap back to send signed token',
-            style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF0F172A))),
-        const SizedBox(height: 28),
-        _NfcRipple(),
-        const SizedBox(height: 20),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(16)),
-          child: Column(
-            children: [
-              const Text('Hold your phone near the merchant\'s device',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: Color(0xFF475569))),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Transferring signed token → ',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-                  Text('RM ${amount.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF2563EB))),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-        SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: ElevatedButton.icon(
-            onPressed: onTap,
-            icon: const Icon(Icons.nfc, size: 22),
-            label: const Text('Tap NFC to Pay',
-                style: TextStyle(fontWeight: FontWeight.w600)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0066FF),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-              elevation: 0,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Stage: Transferring ─────────────────────────────────────────────────────
-
-class _TransferringStage extends StatelessWidget {
-  const _TransferringStage();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _DragHandle(),
-        const SizedBox(height: 40),
-        const CircularProgressIndicator(color: Color(0xFF2563EB)),
-        const SizedBox(height: 18),
-        const Text('Transferring token…',
-            style: TextStyle(
-                fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF0F172A))),
-        const SizedBox(height: 6),
-        const Text('Signing & handing off via NFC',
-            style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
-        const SizedBox(height: 40),
       ],
     );
   }

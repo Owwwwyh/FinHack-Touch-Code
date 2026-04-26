@@ -225,6 +225,30 @@ resource "alicloud_fcv3_function" "routes" {
   }
 }
 
+resource "alicloud_fcv3_function" "public_api" {
+  function_name         = "public-api"
+  description           = "TNG FinHack aggregated public API entrypoint"
+  role                  = alicloud_ram_role.fc_runtime.arn
+  runtime               = "python3.10"
+  handler               = "public_api_fc.handler"
+  cpu                   = 0.5
+  memory_size           = 768
+  timeout               = 30
+  disk_size             = 512
+  internet_access       = true
+  instance_concurrency  = 10
+  environment_variables = local.common_env
+
+  code {
+    oss_bucket_name = var.oss_model_bucket
+    oss_object_name = alicloud_oss_bucket_object.package.key
+  }
+
+  log_config {
+    log_begin_rule = "None"
+  }
+}
+
 resource "alicloud_fcv3_trigger" "http" {
   for_each = local.routes
 
@@ -237,6 +261,19 @@ resource "alicloud_fcv3_trigger" "http" {
     authType           = "anonymous"
     disableURLInternet = false
     methods            = [each.value.method]
+  })
+}
+
+resource "alicloud_fcv3_trigger" "public_api" {
+  function_name = alicloud_fcv3_function.public_api.function_name
+  qualifier     = "LATEST"
+  trigger_type  = "http"
+  trigger_name  = "public-api-http"
+  description   = "Shared HTTP trigger for the public /v1 API surface"
+  trigger_config = jsonencode({
+    authType           = "anonymous"
+    disableURLInternet = false
+    methods            = ["GET", "POST"]
   })
 }
 
@@ -254,4 +291,8 @@ output "function_environment" {
     for route_name, route in local.routes :
     route.function_name => local.common_env
   }
+}
+
+output "public_api_url" {
+  value = alicloud_fcv3_trigger.public_api.http_trigger[0].url_internet
 }
