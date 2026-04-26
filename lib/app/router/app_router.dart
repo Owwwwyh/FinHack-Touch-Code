@@ -1,0 +1,57 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../features/history/history_screen.dart';
+import '../../features/home/home_screen.dart';
+import '../../features/onboarding/onboarding_screen.dart';
+import '../../features/settings/settings_screen.dart';
+import '../../features/pay/pay_confirm_screen.dart';
+import '../../features/receive/receive_screen.dart';
+import '../../features/request/request_pending_screen.dart';
+import '../../features/request/request_screen.dart';
+import '../../features/splash/splash_screen.dart';
+import 'route_paths.dart';
+
+final appRouterProvider = Provider<GoRouter>((ref) {
+  return GoRouter(
+    initialLocation: RoutePaths.splash,
+    routes: [
+      GoRoute(
+        path: RoutePaths.splash,
+        builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.onboarding,
+        builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.home,
+        builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.request,
+        builder: (context, state) => const RequestScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.requestPending,
+        builder: (context, state) => const RequestPendingScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.payConfirm,
+        builder: (context, state) => const PayConfirmScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.receive,
+        builder: (context, state) => const ReceiveScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.history,
+        builder: (context, state) => const HistoryScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.settings,
+        builder: (context, state) => const SettingsScreen(),
+      ),
+    ],
+  );
+});

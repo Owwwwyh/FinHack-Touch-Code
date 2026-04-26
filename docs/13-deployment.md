@@ -1,103 +1,152 @@
 ---
 name: 13-deployment
-description: Local dev, IaC layout, env vars, secrets, CI, public URL, rollback
+description: Current local run path, infra reality, deploy blockers, environment wiring, smoke tests
 owner: DevOps
-status: ready
+status: active
 depends-on: [05-aws-services, 06-alibaba-services]
-last-updated: 2026-04-25
+last-updated: 2026-04-26
 ---
 
 # Deployment
 
-## 1. Environments
+## 1. Reality Check
+
+This doc is the source of truth for **what can actually be deployed from this repo today**.
+
+| Area | Current state | Notes |
+|---|---|---|
+| Flutter app | works locally | tested with `flutter test` |
+| Android build | works locally | `./gradlew app:compileDebugKotlin` passes |
+| Local backend | works locally | run `python3 backend/server.py` |
+| AWS base infra | real Terraform resources | `s3`, `dynamodb`, `kms`, `cognito`, `eventbridge`, `secrets` |
+| AWS compute | deployable from repo | `infra/aws/lambda` and `infra/aws/apigw` now create real Lambda + HTTP API resources; build the shared zip first |
+| Alibaba base infra | real Terraform resources | `oss`, `tablestore` |
+| Alibaba compute | not deployable yet | `infra/alibaba/fc`, `infra/alibaba/apigw`, `infra/alibaba/eas` are scaffold-only `terraform_data` modules |
+| Public demo URL | not live yet | AWS compute is now deployable from code, but no live apply was run from this workspace |
+
+## 2. Environments
 
 | Env | Purpose | URL |
 |---|---|---|
-| `local` | Developer laptops | `http://localhost:3000` (mock backend) |
-| `demo` | Live hackathon demo | `https://api-finhack.example.com` |
-| `staging` | (optional) pre-demo dry-run | same infra, separate Tablestore instance |
+| `local` | Developer laptops | `http://localhost:3000` |
+| `demo` | Live hackathon demo | `https://api-finhack.example.com` once compute modules are real |
 
-For the hackathon, only `local` and `demo` are required.
+Only `local` is real today. `demo` is the target environment.
 
-## 2. Local dev
+## 3. Local Dev
 
-`scripts/local-stack.sh` brings up:
-- LocalStack for AWS-likes (DynamoDB, S3, EventBridge stubs).
-- Tablestore + OSS local mocks aren't first-class → use the Alibaba SDK pointed at
-  *real* dev resources but with a separate `tng-finhack-dev` Tablestore instance.
-- A Python Flask shim that mimics the FC HTTP routes so mobile devs can iterate
-  without deploying.
+The current working local path is the Python server in [backend/server.py](/Users/mkfoo/Desktop/FinHack-Touch-Code/backend/server.py:1).
 
-`docker-compose.yml`:
-```yaml
-version: "3.9"
-services:
-  localstack:
-    image: localstack/localstack:3
-    environment:
-      SERVICES: dynamodb,s3,kms,events,lambda
-    ports: ["4566:4566"]
-  fc-shim:
-    build: ./backend/fc-shim
-    ports: ["3000:3000"]
-    environment:
-      AWS_ENDPOINT_URL: http://localstack:4566
-      ALIBABA_OTS_ENDPOINT: ${ALIBABA_OTS_ENDPOINT}
-      ALIBABA_OTS_INSTANCE: tng-finhack-dev
-      COGNITO_JWKS_URL: ${COGNITO_JWKS_URL}
+Start it with:
+
+```bash
+python3 backend/server.py
 ```
 
-Mobile dev points to `http://10.0.2.2:3000/v1` on Android emulator.
+Run the Flutter app against that server with:
 
-## 3. IaC layout
+```bash
+flutter run \
+  --dart-define=API_BASE_URL=http://10.0.2.2:3000/v1 \
+  --dart-define=API_BEARER_TOKEN=demo-token \
+  --dart-define=DEVICE_ID=did:tng:device:demo
+```
+
+The repo does **not** currently contain `scripts/local-stack.sh`, `docker-compose.yml`,
+`scripts/seed-demo-users.sh`, or `scripts/warmup.sh`, so do not rely on those paths.
+
+## 4. IaC Layout In The Repo
 
 ```
 infra/
 ├── aws/
 │   ├── main.tf
-│   ├── backend.tf            # remote state on S3 + DynamoDB lock
 │   ├── s3/
 │   ├── dynamodb/
 │   ├── kms/
 │   ├── cognito/
 │   ├── eventbridge/
 │   ├── lambda/
-│   ├── stepfunctions/
-│   ├── sagemaker/
 │   ├── apigw/
 │   └── secrets/
 ├── alibaba/
-│   ├── main.ros
-│   ├── backend.ros
+│   ├── main.tf
 │   ├── oss/
 │   ├── tablestore/
-│   ├── rds/
 │   ├── fc/
 │   ├── apigw/
-│   ├── eas/
-│   ├── kms/
-│   ├── push/
-│   ├── eb/
-│   └── monitor/
-└── migrations/
-    └── 2026-04-25-init.sql
+│   └── eas/
 ```
 
-State management: AWS Terraform state in S3 + DynamoDB lock. Alibaba ROS uses ROS
-state automatically; alternatively Alibaba Terraform provider with state in OSS.
+Status by module:
 
-## 4. Environment variable matrix
+| Path | Status |
+|---|---|
+| `infra/aws/s3` | real resources |
+| `infra/aws/dynamodb` | real resources |
+| `infra/aws/kms` | real resources |
+| `infra/aws/cognito` | real resources |
+| `infra/aws/eventbridge` | real resources |
+| `infra/aws/secrets` | real resources |
+| `infra/aws/lambda` | real resources |
+| `infra/aws/apigw` | real resources |
+| `infra/alibaba/oss` | real resources |
+| `infra/alibaba/tablestore` | real resources |
+| `infra/alibaba/fc` | scaffold-only contract |
+| `infra/alibaba/apigw` | scaffold-only contract |
+| `infra/alibaba/eas` | scaffold-only contract |
 
-### Mobile app (`mobile/.env`)
+## 5. Critical Blockers To A Real Deploy
+
+1. [infra/alibaba/fc/main.tf](/Users/mkfoo/Desktop/FinHack-Touch-Code/infra/alibaba/fc/main.tf:1) only defines route and environment contracts. It does not create Function Compute services or functions.
+2. [infra/alibaba/apigw/main.tf](/Users/mkfoo/Desktop/FinHack-Touch-Code/infra/alibaba/apigw/main.tf:1) only defines a public domain contract. It does not create real API Gateway routes.
+3. [infra/alibaba/eas/main.tf](/Users/mkfoo/Desktop/FinHack-Touch-Code/infra/alibaba/eas/main.tf:1) only defines an endpoint contract. It does not create a PAI-EAS deployment.
+4. The Alibaba root still uses the `aliyun/alibabacloudstack` provider, which is documented for Apsara Stack rather than normal public Alibaba Cloud. That provider choice now looks like the main blocker to a safe FC/API Gateway/EAS implementation.
+5. The FC scaffold env contract does not match the Python handlers. The handlers expect names such as `TABLESTORE_INSTANCE`, `OSS_BUCKET_PUBKEYS`, and `COGNITO_ISSUER`, but the current scaffold emits `OTS_INSTANCE`, `OSS_PUBKEY_BUCKET`, and omits some required vars entirely.
+6. The Tablestore contract is inconsistent. The handlers currently hard-code tables such as `devices`, `wallets`, `pending_batches`, and `score_policies`, while Terraform creates prefixed tables and does not create `pending_batches` or `score_policies`.
+7. Only six Alibaba FC handler entrypoints exist in `backend/fc`, while the target design docs still describe an 11-function surface.
+8. There is no Alibaba FC packaging step yet for `backend/fc`, `backend/lib`, and `backend/requirements.txt`.
+9. The mobile app used to hardcode the local backend URL. It now reads build-time values via `--dart-define`, which still needs to be wired into the release workflow.
+
+## 5.1 AWS Compute Deploy Steps
+
+For a strict operator checklist, use
+[docs/14-aws-manual-deploy-runbook.md](14-aws-manual-deploy-runbook.md).
+
+Build the shared Lambda zip:
+
+```bash
+./infra/aws/lambda/build_package.sh infra/aws/lambda/dist/aws_lambda_bundle.zip
+```
+
+Apply AWS infra with the package path:
+
+```bash
+cd infra/aws
+terraform init
+terraform apply \
+  -var="lambda_package_zip=$(pwd)/lambda/dist/aws_lambda_bundle.zip"
+```
+
+Notes:
+- The build script vendors Linux-compatible `cryptography` wheels into the zip.
+- The deployed Lambdas resolve `secret://...` env values from AWS Secrets Manager at runtime.
+- The AWS bridge URL now comes from a real HTTP API route: `POST /internal/alibaba/events`.
+
+## 5.2 Alibaba Operator Checklist
+
+For the practical Alibaba next move after AWS, use
+[docs/15-alibaba-manual-deploy-runbook.md](15-alibaba-manual-deploy-runbook.md).
+
+## 6. Environment Wiring
+
+### Flutter build flags
+
 | Var | local | demo |
 |---|---|---|
 | `API_BASE_URL` | `http://10.0.2.2:3000/v1` | `https://api-finhack.example.com/v1` |
-| `COGNITO_DOMAIN` | (mock) | `tng-finhack.auth.ap-southeast-1.amazoncognito.com` |
-| `COGNITO_CLIENT_ID` | (mock) | from Cognito output |
-| `OSS_PUBKEY_BUCKET` | (n/a) | `tng-finhack-pubkeys` |
-
-Loaded via `flutter_dotenv` at app start; baked into release APK from CI secrets for
-demo build.
+| `API_BEARER_TOKEN` | `demo-token` | real Cognito access token or a demo token accepted by the deployed API |
+| `DEVICE_ID` | `did:tng:device:demo` | real device id from registration |
 
 ### AWS Lambdas (set in Terraform)
 | Var | Notes |
@@ -105,25 +154,35 @@ demo build.
 | `DYNAMO_LEDGER_TABLE` | `tng_token_ledger` |
 | `DYNAMO_NONCE_TABLE` | `tng_nonce_seen` |
 | `DYNAMO_PUBKEY_CACHE` | `tng_pubkey_cache` |
-| `EVENTBRIDGE_BUS` | `tng-cross-cloud` |
-| `ALIBABA_INGEST_URL` | from Secrets Manager `tng-finhack/alibaba-ingest` |
-| `ALIBABA_INGEST_HMAC_SECRET` | from Secrets Manager |
+| `AWS_CROSS_CLOUD_BUS` | `tng-finhack-cross-cloud` |
+| `ALIBABA_INGEST_URL` | `secret://tng-finhack-alibaba-ingest` |
+| `AWS_BRIDGE_HMAC_SECRET` | `secret://tng-finhack-aws-bridge-hmac-secret` |
 | `MODEL_BUCKET` | `tng-finhack-aws-models` |
 | `LOG_LEVEL` | `INFO` |
 
-### Alibaba FC functions (set in ROS)
+### Alibaba FC handler env vars (handler-facing names)
 | Var | Notes |
 |---|---|
-| `OTS_INSTANCE` | `tng-finhack` |
-| `OSS_PUBKEY_BUCKET` | `tng-finhack-pubkeys` |
-| `OSS_MODEL_BUCKET` | `tng-finhack-models` |
-| `RDS_DSN` | from Alibaba KMS `tng-finhack/rds-dsn` |
-| `EAS_ENDPOINT` | from KMS `tng-finhack/eas-endpoint` |
-| `AWS_BRIDGE_URL` | from KMS `tng-finhack/aws-bridge-url` |
-| `AWS_BRIDGE_HMAC_SECRET` | from KMS |
-| `COGNITO_JWKS_URL` | from KMS |
+| `TABLESTORE_ENDPOINT` | OTS endpoint used by all stateful handlers |
+| `TABLESTORE_INSTANCE` | Tablestore instance name; current scaffold incorrectly uses `OTS_INSTANCE` |
+| `OTS_ACCESS_KEY_ID` | Tablestore SDK credential input |
+| `OTS_ACCESS_KEY_SECRET` | Tablestore SDK credential input |
+| `OSS_ENDPOINT` | Regional OSS endpoint for pubkey upload |
+| `OSS_ACCESS_KEY_ID` | OSS SDK credential input |
+| `OSS_ACCESS_KEY_SECRET` | OSS SDK credential input |
+| `OSS_BUCKET_PUBKEYS` | pubkey bucket name; current scaffold incorrectly uses `OSS_PUBKEY_BUCKET` |
+| `COGNITO_JWKS_URL` | AWS Cognito JWKS URL |
+| `COGNITO_ISSUER` | AWS Cognito issuer URL derived from the user pool |
+| `AWS_BRIDGE_URL` | live AWS inbound bridge URL |
+| `AWS_BRIDGE_HMAC_SECRET` | shared bridge secret |
+| `EAS_ENDPOINT` | optional live score refresh endpoint |
+| `EAS_TOKEN` | optional PAI-EAS auth token |
+| `EAS_TIMEOUT_SECONDS` | score refresh timeout override |
 
-## 5. Secrets
+These are the names the current Python handlers actually read. The compute modules
+that should apply them are still scaffold-only.
+
+## 7. Secrets
 
 | Secret | Stored in | Used by |
 |---|---|---|
@@ -134,77 +193,34 @@ demo build.
 | Cognito client secret | none (PKCE public client) | — |
 | Sigstore signing key | Cosign keyless via OIDC | Step Functions Lambda |
 
-Rotation cadence: secret-manager-managed, 30d default.
+## 8. Suggested Apply Order
 
-## 6. CI/CD (GitHub Actions sketch)
+1. Apply AWS foundation modules that are already real.
+2. Build the shared AWS Lambda artifact with `./infra/aws/lambda/build_package.sh`.
+3. Apply AWS compute and record `aws_bridge_invoke_url` plus `cognito_jwks_uri`.
+4. Replace the Alibaba provider/scaffold/env/table contract gaps called out above.
+5. Apply Alibaba foundation modules that are already real.
+6. Apply Alibaba compute.
+7. Record the live Alibaba ingest URL `/v1/_internal/eb/aws-bridge`.
+8. Re-apply AWS with that ingest URL as `alibaba_ingest_url`.
+9. Seed two demo users, devices, and balances.
+10. Run the smoke tests below.
 
-`.github/workflows/build-mobile.yml`
-- On push to `main`: lint, test, build APK, upload as artifact.
-
-`.github/workflows/backend.yml`
-- On push to `backend/**`: lint, test, packaging.
-- On `release/*` tag: deploy Lambdas + FC functions.
-
-`.github/workflows/infra.yml`
-- On push to `infra/**`: `terraform plan` posted as PR comment; manual approve →
-  `terraform apply` on protected branch.
-
-Demo build path:
-```
-git tag demo-v1
-git push origin demo-v1
-# → CI builds signed APK, deploys IaC, prints public URL
-```
-
-## 7. Public deployment URL
-
-- Custom domain `api-finhack.example.com` on Alibaba API Gateway.
-- ACM certificate (Alibaba SSL) auto-issued + bound.
-- DNS: CNAME from your demo domain to API GW canonical hostname.
-
-## 8. Rollback plan
-
-| Failure | Rollback action |
-|---|---|
-| Bad Lambda deploy | `terraform plan -var image_tag=previous && apply` (Lambdas pinned by image tag in ECR) |
-| Bad FC deploy | FC versioning: switch alias `live` to previous version |
-| Bad model OTA | Pull policy back to previous via `Tablestore.policy_versions` flip; mobile picks up on next `GET /score/policy` |
-| Bad migration | RDS: revert via `migrations/<date>-revert-<slug>.sql`; demo seeds reseeded from snapshot |
-| Cross-cloud bridge HMAC mismatch | Re-deploy with rotated secret on both sides |
-
-## 9. Demo-day playbook
-
-Pre-demo (T−60min):
-1. `terraform apply` both clouds — confirm clean.
-2. Run `scripts/seed-demo-users.sh` — Faiz + Aida wallets seeded.
-3. Run `scripts/warmup.sh` — pre-warms PAI-EAS + Lambda.
-4. Open both dashboards.
-5. Verify both Pixel devices have latest demo APK.
-6. Verify NFC tap test passes per [docs/11 §5](11-demo-and-test-plan.md).
-
-Post-demo cleanup:
-- `terraform destroy` only after submission complete.
-
-## 10. Cost ceilings
-
-Set AWS Budget alert at $25, Alibaba spending limit at $30 for the hackathon window.
-Alarms ping Slack webhook (stubbed). Hard cutover not enabled — don't risk taking the
-demo offline mid-judging.
-
-## 11. Logs & observability
+## 9. Smoke Tests
 
 | Source | Destination |
 |---|---|
-| FC functions | Alibaba SLS `tng-finhack-logs` |
-| EAS endpoint | Alibaba SLS + EAS metric stream |
-| Lambdas | CloudWatch Logs |
-| API Gateway access logs | both clouds, separate log stores |
-| Cross-cloud bridge | both sides log full payload (PII-scrubbed) |
+| Local wallet read | `curl -H 'Authorization: Bearer demo' http://localhost:3000/v1/wallet/balance` |
+| Local score refresh | `curl -X POST -H 'Content-Type: application/json' -H 'Authorization: Bearer demo' http://localhost:3000/v1/score/refresh -d '{"user_id":"demo_user","features":{"tx_count_30d":10}}'` |
+| Local settlement | `curl -X POST -H 'Content-Type: application/json' -H 'Authorization: Bearer demo' http://localhost:3000/v1/tokens/settle -d '{"device_id":"did:tng:device:demo","batch_id":"batch-local","tokens":["<JWS>"],"ack_signatures":[]}'` |
+| Deployed wallet read | same route against the live base URL with a real token |
+| Deployed score refresh | same route against the live base URL with a real token |
+| Deployed settlement | same route against the live base URL with a real token and a real JWS |
 
-Dashboards live and screenshotted in `deliverables/screenshots/` before each dry run.
+## 10. Deployment Done Means
 
-## 12. Disaster recovery (post-MVP)
-
-Out of scope for hackathon, but the data residency choices already enable an
-RTO/RPO discussion: ledger PITR on DynamoDB → 5-min RPO; Tablestore continuous
-backup → seconds-RPO; RDS daily snapshots → 24h RPO acceptable for analytics.
+- AWS Lambda and AWS API Gateway are real resources, not `terraform_data` outputs.
+- Alibaba FC, API Gateway, and EAS are real resources, not `terraform_data` outputs.
+- The Flutter build can target the deployed base URL without editing source.
+- One phone can reconnect and settle an offline payment through the live cloud path.
+- Replay is rejected in the deployed environment.

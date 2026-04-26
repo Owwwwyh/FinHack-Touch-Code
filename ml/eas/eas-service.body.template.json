@@ -1,0 +1,16 @@
+{
+  "name": "tng-credit-score-refresh",
+  "metadata": {
+    "instance": 1,
+    "cpu": 2,
+    "memory": 4000,
+    "enable_webservice": true
+  },
+  "containers": [
+    {
+      "image": "REPLACE_WITH_ACR_IMAGE",
+      "port": 8080,
+      "script": "sh -lc 'gunicorn --chdir /app --bind 0.0.0.0:8080 ml.eas.app:app'"
+    }
+  ]
+}

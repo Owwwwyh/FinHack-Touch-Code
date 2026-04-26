@@ -144,9 +144,20 @@ Request:
     "<JWS string 1>",
     "<JWS string 2>",
     "..."
+  ],
+  "ack_signatures": [
+    {"tx_id": "01HW3...", "ack_sig": "BASE64URL(64 bytes)", "ack_kid": "01HW4..."},
+    "..."
   ]
 }
 ```
+
+> **Ack-signature provenance (two-tap flow):** In the merchant-initiated two-tap flow,
+> the ack-signature is always produced by the **receiver (Aida)** at the end of tap 2
+> and collected by the **sender (Faiz)**. Faiz includes it in the settle request for
+> audit purposes. The `ack_kid` identifies which device signed the ack. The server
+> records it alongside the JWS but does **not** require it for settlement to succeed —
+> ack-signature is audit-only in v1.
 
 Response 200:
 ```json

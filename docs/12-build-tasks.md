@@ -1,252 +1,140 @@
 ---
 name: 12-build-tasks
-description: Work breakdown by track, milestones, parallelizable agent tasks with explicit dependencies and DoD
+description: Current execution plan for shipping a working Flutter demo and real AWS + Alibaba deployment
 owner: PM
-status: ready
+status: active
 depends-on: [00-overview, 01-architecture, 03-token-protocol, 04-credit-score-ml, 05-aws-services, 06-alibaba-services, 07-mobile-app, 08-backend-api, 09-data-model, 10-security-threat-model, 13-deployment]
-last-updated: 2026-04-25
+last-updated: 2026-04-26
 ---
 
 # Build Tasks
 
-This is the **single execution-order doc**. Downstream agents pick tasks by their
-agent tag, follow the linked spec doc, satisfy the Definition-of-Done, and check off.
+This is the **current execution-order doc**. A task is only done when the code runs
+locally or on real cloud resources, not when a spec or Terraform contract exists.
 
-## 1. Tracks & agent tags
+## 1. Current status snapshot
+
+| Area | Status | Notes |
+|---|---|---|
+| Flutter app | `working locally` | `flutter test` passes; request/pay/receive flow is implemented |
+| Android path | `working locally` | `./gradlew app:compileDebugKotlin` passes |
+| Local backend | `working locally` | `python3 -m pytest backend/tests tests` passes; `backend/server.py` serves the local `/v1` API |
+| AWS foundation | `partially deployable` | `s3`, `dynamodb`, `kms`, `cognito`, `eventbridge`, `secrets` are real Terraform resources |
+| AWS compute deploy | `deployable from repo` | real Lambda/API Gateway Terraform exists now; still needs package build, apply, and smoke test |
+| Alibaba foundation | `partially deployable` | `oss` and `tablestore` are real Terraform resources |
+| Alibaba compute deploy | `blocked` | compute modules are still scaffold-only, and the root is currently pinned to `aliyun/alibabacloudstack` |
+| Live cross-cloud smoke test | `not done` | requires real compute resources on both clouds |
+
+## 2. Tracks & agent tags
 
 | Tag | Track |
 |---|---|
-| `agent:cloud-aws-*` | AWS infra & Lambdas |
-| `agent:cloud-ali-*` | Alibaba infra & FC |
-| `agent:ml-*` | ML pipeline |
-| `agent:backend-*` | API contracts, settlement bridge logic |
-| `agent:mobile-*` | Flutter app + Kotlin HCE |
-| `agent:security-*` | Crypto verification + threat-model checks |
-| `agent:demo-*` | Demo prep + deck + video |
+| `agent:cloud-aws-*` | AWS infra and compute deployment |
+| `agent:cloud-ali-*` | Alibaba infra and compute deployment |
+| `agent:backend-*` | Runtime handlers, packaging, smoke tests |
+| `agent:mobile-*` | Flutter app, Android NFC, device-ready build config |
+| `agent:ml-*` | Model training and online refresh path |
+| `agent:security-*` | Crypto verification, replay tests, HMAC checks |
+| `agent:deploy-*` | Environment wiring, seed data, end-to-end dry run |
 
-## 2. Milestones
+## 3. Milestones
 
-| Day | Theme | Outcome |
+| Phase | Outcome | Status |
 |---|---|---|
-| **Day 1 (today)** | Scaffolding | Both clouds bootstrapped, mobile project compiles, synthetic data generated, training run on toy data. |
-| **Day 2** | Vertical slice | A single offline payment flows: sign → NFC → settle → ledger entry. AI score panel shows a number. |
-| **Day 3** | Polish + demo | All TS-01..TS-20 scenarios pass; demo recorded; deck written. |
+| **Phase 1** | Local vertical slice works end-to-end on developer machines | mostly done |
+| **Phase 2** | Real multi-cloud compute deploy exists in AWS and Alibaba | not done |
+| **Phase 3** | Two-device dry run succeeds against live cloud endpoints | not done |
 
-## 3. Day 1 — scaffolding (parallel)
+## 4. Immediate priorities
 
-### `agent:cloud-aws-1` — AWS bootstrap
+1. Replace scaffold-only compute modules with real cloud resources.
+2. Keep the mobile app configurable so one build can target local or deployed backends.
+3. Wire the existing Python handlers into real AWS Lambda and Alibaba FC deploys.
+4. Seed demo users and run live smoke tests through both clouds.
+5. Only after that, spend time on polish.
+
+## 5. Remaining execution tasks
+
+### `agent:cloud-aws-1` — Finish deployable AWS compute
 **Spec:** [docs/05-aws-services.md](05-aws-services.md), [docs/13-deployment.md](13-deployment.md)
+**Current blocker:** infra is now real, but it still needs `./infra/aws/lambda/build_package.sh`, `terraform apply`, and live smoke tests.
 **Tasks:**
-1. Create AWS account / use shared sandbox; configure SSO.
-2. Write `infra/aws/main.tf` with provider + tags.
-3. Create S3 buckets (`tng-finhack-aws-data`, `models`, `logs`).
-4. Create DynamoDB tables (`tng_token_ledger`, `tng_nonce_seen`, `tng_idempotency`,
-   `tng_pubkey_cache`).
-5. Create KMS CMK + alias.
-6. Create Cognito user pool + app client; output JWKS URL.
-7. Create EventBridge buses.
-**DoD:** `terraform apply` clean, `aws dynamodb list-tables` returns 4 tables, JWKS URL
-returns valid JWKS.
+1. Replace the scaffold Lambda contract with real `aws_lambda_function`, IAM role/policy, and log group resources.
+2. Package `backend/aws_lambda/settle_batch`, `backend/aws_lambda/eb_cross_cloud_bridge_in`, and `backend/aws_lambda/eb_cross_cloud_bridge_out`.
+3. Replace the scaffold API Gateway contract with a real AWS HTTP API for inbound Alibaba bridge traffic.
+4. Output the real invoke URL and wire it back into Alibaba config.
+5. Apply and smoke-test the inbound bridge endpoint.
+**DoD:** `terraform apply` creates real Lambda functions and a callable AWS bridge URL.
 
-### `agent:cloud-ali-1` — Alibaba bootstrap
-**Spec:** [docs/06-alibaba-services.md](06-alibaba-services.md), [docs/13-deployment.md](13-deployment.md)
+### `agent:cloud-ali-1` — Finish deployable Alibaba compute
+**Spec:** [docs/06-alibaba-services.md](06-alibaba-services.md), [docs/13-deployment.md](13-deployment.md), [docs/15-alibaba-manual-deploy-runbook.md](15-alibaba-manual-deploy-runbook.md)
+**Current blocker:** the compute modules are still scaffold-only, the Alibaba root is still pinned to `aliyun/alibabacloudstack`, and the FC handler runtime contract does not yet match the Terraform env/table contract.
 **Tasks:**
-1. Configure Alibaba account with KL region.
-2. Write `infra/alibaba/main.ros` + provider.
-3. Create OSS buckets (`tng-finhack-models`, `pubkeys`, `static`).
-4. Create Tablestore instance + 6 tables.
-5. Create RDS MySQL instance + run schema DDL from [docs/09-data-model.md §3](09-data-model.md).
-6. Provision PAI-EAS service shell (no model yet).
-7. Create API Gateway group + custom domain placeholder.
-**DoD:** All resources created, `tng-finhack-ots` accessible, RDS reachable from FC role.
+1. Switch `infra/alibaba` from `aliyun/alibabacloudstack` to the public-cloud `aliyun/alicloud` provider and choose the Terraform auth path.
+2. Add an Alibaba packaging flow for `backend/fc`, `backend/lib`, and `backend/requirements.txt`.
+3. Replace the scaffold FC module with real Function Compute resources for the six handlers that already exist in `backend/fc`.
+4. Replace the scaffold API Gateway module with real public route bindings for those six handlers.
+5. Align handler env names with deploy-time env vars, especially `TABLESTORE_INSTANCE`, `OSS_BUCKET_PUBKEYS`, `COGNITO_ISSUER`, and the missing OTS/OSS credential vars.
+6. Align the Tablestore contract by externalizing table names and creating or renaming the tables the handlers actually need.
+7. Replace the scaffold EAS module with a real score-refresh deployment, or explicitly keep `EAS_ENDPOINT=""` for the first live slice.
+8. Output the real public API base URL and internal ingest URL, then feed that ingest URL back into AWS.
+9. Apply and curl `/v1/wallet/balance`, `/v1/score/policy`, `/v1/score/refresh`, and `/v1/tokens/settle`.
+**DoD:** Alibaba exposes real public routes backed by deployed compute.
 
-### `agent:ml-1` — Synthetic data + first training
-**Spec:** [docs/04-credit-score-ml.md §6, §7](04-credit-score-ml.md)
-**Blocked by:** `agent:cloud-aws-1` (S3 buckets).
+### `agent:backend-1` — Harden runtime handlers for cloud deploy
+**Spec:** [docs/08-backend-api.md](08-backend-api.md), [docs/13-deployment.md](13-deployment.md)
 **Tasks:**
-1. Write `ml/synth/generate.py`.
-2. Run with `--num-users 1000 --days 30` initially; iterate until distributions look right.
-3. Run with `--num-users 10000 --days 90`; upload to `s3://.../synthetic/v1/`.
-4. Write SageMaker training notebook `ml/train.ipynb` using built-in XGBoost.
-5. Train v0 model, log metrics to CloudWatch.
-6. Convert to TF Lite via `ml/convert_tflite.py`; size ≤ 2 MB.
-**DoD:** Both parquets in S3, model registered, `model.tflite` in
-`s3://.../models/credit/v1/`.
+1. Keep local demo-state fallbacks, but make sure every handler reads real cloud env vars when present.
+2. Add packaging metadata or helper scripts needed for Lambda/FC deployments.
+3. Add smoke tests for deployed `/v1/wallet/balance`, `/v1/score/refresh`, and `/v1/tokens/settle`.
+4. Verify settlement batch results stay compatible between local and deployed modes.
+**DoD:** The same handlers run locally and in cloud with only environment differences.
 
-### `agent:mobile-1` — Flutter project scaffold
-**Spec:** [docs/07-mobile-app.md](07-mobile-app.md)
+### `agent:mobile-1` — Make the device build deployment-ready
+**Spec:** [docs/07-mobile-app.md](07-mobile-app.md), [docs/11-demo-and-test-plan.md](11-demo-and-test-plan.md)
 **Tasks:**
-1. `flutter create mobile/`, configure as in §2.
-2. Add packages from §3.
-3. Set up Riverpod, go_router, theme, splash, onboarding placeholder.
-4. Wire MaterialApp with empty Home/Pay/Receive routes.
-5. Generate Drift code, create empty schemas (Outbox, Inbox, BalanceCache).
-6. Configure Android `minSdk=26`, NFC + biometric permissions, HCE service stub.
-**DoD:** `flutter run` shows splash → onboarding → home; APK built; HCE service visible
-in Android NFC settings.
+1. Keep backend config externalized through `--dart-define` so the app can point at local or deployed backends.
+2. Verify the request/pay/receive flow on two Android devices.
+3. Verify settlement flushes correctly against the deployed `/v1/tokens/settle` endpoint.
+4. Produce the APK used for the dry run.
+**DoD:** The same app code works against local and live backend URLs without source edits.
 
-### `agent:security-1` — JWS reference implementation
-**Spec:** [docs/03-token-protocol.md](03-token-protocol.md)
+### `agent:ml-1` — Publish a real refresh-score path
+**Spec:** [docs/04-credit-score-ml.md](04-credit-score-ml.md), [docs/06-alibaba-services.md](06-alibaba-services.md)
 **Tasks:**
-1. Implement `core/crypto/jws_signer.dart` (signing) + verifier reference (Dart).
-2. Implement Python verifier in `backend/lib/jws.py`.
-3. Generate test vectors `ml/test-vectors/token-001.jws` and 5 negative variants
-   (see [docs/03 §8](03-token-protocol.md)).
-4. Cross-test: Dart-signed token verifies in Python and vice versa.
-**DoD:** All 6 vectors pass/fail as documented; CI test in `backend/tests/test_jws.py`.
+1. Finish the model artifact export path from `ml/train.py`.
+2. Package the model for Alibaba EAS.
+3. Verify `/v1/score/refresh` returns a live value in deployed mode.
+4. Keep on-device fallback working when the cloud scorer times out.
+**DoD:** Online score refresh works in cloud; offline fallback still works on-device.
 
-## 4. Day 2 — vertical slice (parallel)
-
-### `agent:backend-1` — Wallet API
-**Spec:** [docs/08-backend-api.md](08-backend-api.md)
-**Blocked by:** `agent:cloud-ali-1`.
+### `agent:deploy-1` — Environment wiring and seed data
+**Spec:** [docs/13-deployment.md](13-deployment.md)
 **Tasks:**
-1. Write `backend/fc/wallet-balance/handler.py` reading Tablestore.
-2. Write `backend/fc/device-register/handler.py` writing Tablestore + OSS pubkey.
-3. Write `backend/fc/score-policy/handler.py` returning latest active policy.
-4. Bind to API Gateway routes; deploy via `infra/alibaba/fc/`.
-5. JWT verification middleware using Cognito JWKS.
-**DoD:** Curl all 3 endpoints returns expected JSON with valid JWT.
+1. Create `.tfvars` or equivalent secret inputs for both clouds.
+2. Apply AWS foundation first, then Alibaba foundation, then compute layers.
+3. Seed at least two demo users and their wallet/device rows.
+4. Record the exact deployed API base URL, JWKS URL, and bridge endpoints.
+**DoD:** Fresh engineers can reproduce the demo environment from documented inputs.
 
-### `agent:backend-2` — Settlement bridge
-**Spec:** [docs/05-aws-services.md §4, §8](05-aws-services.md), [docs/06-alibaba-services.md §10](06-alibaba-services.md)
-**Blocked by:** `agent:cloud-aws-1`, `agent:cloud-ali-1`, `agent:security-1`.
-**Tasks:**
-1. Write Lambda `settle-batch`.
-2. Write Lambda `eb-cross-cloud-bridge-out` (HMAC-signed POST).
-3. Write FC `eb-cross-cloud-ingest` to receive AWS events.
-4. Write FC `tokens-settle` that emits the originating event.
-5. End-to-end test: POST a single-token batch to FC; observe ledger entry on AWS;
-   observe wallet balance update on Alibaba.
-**DoD:** TS-02 passes manually with single token.
-
-### `agent:ml-2` — PAI-EAS endpoint
-**Spec:** [docs/04-credit-score-ml.md §9](04-credit-score-ml.md), [docs/06-alibaba-services.md §2](06-alibaba-services.md)
-**Blocked by:** `agent:ml-1`, `agent:cloud-ali-1`.
-**Tasks:**
-1. Write `ml/eas/Dockerfile` + `app.py` (Flask + xgboost).
-2. Push to ACR; deploy as PAI-EAS service.
-3. Wire FC `score-refresh` to call EAS.
-**DoD:** `POST /score/refresh` returns valid number for the synthetic test user.
-
-### `agent:mobile-2` — Sign + NFC vertical slice
-**Spec:** [docs/03-token-protocol.md](03-token-protocol.md), [docs/07-mobile-app.md §6, §7](07-mobile-app.md)
-**Blocked by:** `agent:security-1`, `agent:mobile-1`.
-**Tasks:**
-1. Implement `SigningKeyManager.kt` and platform channel.
-2. Implement `JwsSigner` in Dart.
-3. Implement HCE service `TngHostApduService.kt` with chunk reassembly.
-4. Implement Pay screen with amount entry → sign → NFC send.
-5. Implement Receive screen with HCE state.
-6. Pair-test on two devices; show inbox/outbox rows.
-**DoD:** Two phones pair successfully; outbox/inbox rows visible.
-
-### `agent:mobile-3` — TF Lite scorer + offline state
-**Spec:** [docs/04-credit-score-ml.md §8](04-credit-score-ml.md), [docs/07-mobile-app.md §5](07-mobile-app.md)
-**Blocked by:** `agent:ml-1`, `agent:mobile-1`.
-**Tasks:**
-1. Bundle `model.tflite` in assets.
-2. Implement `CreditScorer` Dart wrapper.
-3. Implement connectivity state machine.
-4. Show safe offline balance on Home + AI Score Panel.
-5. Pull-to-refresh balance from `/wallet/balance`.
-**DoD:** Toggle airplane mode; UI flips state; score number updates from on-device run.
-
-### `agent:cloud-aws-2` — Step Functions OTA pipeline
-**Spec:** [docs/04-credit-score-ml.md §10](04-credit-score-ml.md), [docs/05-aws-services.md §9](05-aws-services.md)
-**Blocked by:** `agent:cloud-aws-1`, `agent:ml-1`.
-**Tasks:**
-1. Lambda `model-publish-bridge` to copy artifact S3→OSS.
-2. Lambda to bump policy version in Tablestore.
-3. Lambda to trigger Mobile Push.
-4. Wire as Step Functions state machine.
-**DoD:** Trigger pipeline manually; new model file appears in OSS; policy bumps; push
-notification arrives on test device.
-
-## 5. Day 3 — polish, scenarios, demo (parallel)
-
-### `agent:backend-3` — Remaining endpoints
-**Spec:** [docs/08-backend-api.md](08-backend-api.md)
-**Tasks:** Implement `dispute`, `merchants/onboard`, `publickeys/{kid}`, `wallet/sync`,
-batch settlement (50 tokens), idempotency-key handling.
-**DoD:** All endpoints from doc 08 callable; integration tests TS-04, TS-06, TS-14 pass.
-
-### `agent:mobile-4` — UX polish
-**Tasks:**
-1. Onboarding KYC tier 1 stub flow.
-2. History screen with pull-to-refresh.
-3. Pending tokens list.
-4. AI Score Panel with model version + features breakdown.
-5. Settings: device info, key rotation, sign-out.
-6. Localization stubs (en, ms).
-**DoD:** Whole demo storyline executable on the device.
-
-### `agent:ml-3` — Better model + OTA validation
-**Tasks:**
-1. Tune XGBoost (depth, n_estimators); achieve RMSE target.
-2. Add monotonic constraints.
-3. Calibrate; validate calibration on holdout.
-4. Sigstore-sign the tflite; embed root in mobile.
-5. Test OTA: poison the model file → verify mobile rejects (TS-13).
-**DoD:** TS-12, TS-13 pass.
-
-### `agent:security-2` — Negative testing
+### `agent:security-1` — Negative tests against deployed infra
 **Spec:** [docs/10-security-threat-model.md](10-security-threat-model.md)
 **Tasks:**
-1. Run all 6 JWS test vectors against deployed `tokens-settle`.
-2. Replay attack: TS-04.
-3. Tampered amount: TS-05.
-4. Cross-cloud HMAC tampering: TS-16.
-5. Document any deviations.
-**DoD:** All TS-04, TS-05, TS-15, TS-16 pass.
+1. Replay attack against deployed settlement path.
+2. Tampered JWS against deployed settlement path.
+3. Cross-cloud HMAC tamper against deployed bridge.
+4. Verify the rejected reasons match the local tests.
+**DoD:** TS-04, TS-05, and TS-17 pass against live infrastructure.
 
-### `agent:demo-1` — Pitch deck
-**Spec:** [docs/00-overview.md](00-overview.md), [docs/11-demo-and-test-plan.md §1, §7](11-demo-and-test-plan.md)
-**Tasks:** Slides per the deck mapping; export architecture image from doc 01.
-**DoD:** 10-slide deck PDF in `deliverables/pitch.pdf`.
-
-### `agent:demo-2` — Demo video
-**Spec:** [docs/11-demo-and-test-plan.md §1](11-demo-and-test-plan.md)
-**Blocked by:** all functional agents.
-**Tasks:**
-1. Record 4-min screen capture with the storyline.
-2. Edit, add captions.
-3. Upload to YouTube unlisted; capture link.
-**DoD:** Public link in `deliverables/demo-video-link.txt`.
-
-### `agent:demo-3` — Submission packaging
-**Tasks:**
-1. Fill the FINHACK submission form per [README.md §FINHACK deliverables](../README.md).
-2. Confirm deployment URL.
-3. Confirm GitHub repo public.
-**DoD:** Submission complete.
-
-## 6. Dependency graph (DAG)
-
-```
-                cloud-aws-1 ───┬── ml-1 ── ml-2 ── ml-3
-                               │           │
-                               │           └─ cloud-aws-2
-                cloud-ali-1 ───┤
-                               ├── backend-1
-                               ├── backend-2 ─── (e2e settle)
-                               └── backend-3
-mobile-1 ── mobile-2 (uses security-1, security-1 standalone)
-mobile-1 ── mobile-3 (uses ml-1)
-mobile-1 ── mobile-4
-security-1 standalone ── security-2 (uses backend-2)
-
-demo-1 (after architecture stable)
-demo-2 blocked by all functional
-demo-3 last
-```
-
-## 7. Definition of "demo-ready"
+## 6. Definition of workable
 
 All of:
-- [ ] TS-01..TS-20 green (or documented exception with mitigation)
-- [ ] Demo video uploaded
-- [ ] Pitch deck PDF in `deliverables/`
-- [ ] Public deployment URL responding
-- [ ] GitHub repo public, `README.md` deliverables checklist all checked
-- [ ] Both cloud dashboards show traffic during a dry run
+- [x] `flutter test` green
+- [x] `python3 -m pytest backend/tests tests` green
+- [x] `./gradlew app:compileDebugKotlin` green
+- [x] AWS scaffold modules replaced by real deploy resources
+- [ ] Alibaba scaffold modules replaced by real deploy resources
+- [ ] Public deployed endpoint responds to wallet/score/settle routes
+- [ ] AWS ledger records a real settlement and rejects replay
+- [ ] Two phones complete the offline two-tap flow and settle through the live cloud path
+- [ ] [docs/13-deployment.md](13-deployment.md) reflects the actual deployed values

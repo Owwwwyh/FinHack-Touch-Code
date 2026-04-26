@@ -1,0 +1,37 @@
+import 'connectivity_state.dart';
+
+class ConnectivityPolicy {
+  const ConnectivityPolicy({
+    this.cacheConfidenceWindow = const Duration(minutes: 10),
+  });
+
+  final Duration cacheConfidenceWindow;
+
+  ConnectivityTier evaluateTier({
+    required bool hasNetwork,
+    required DateTime? lastSyncedAt,
+    required int consecutiveSyncFailures,
+    required DateTime now,
+  }) {
+    if (!hasNetwork) {
+      return ConnectivityTier.offline;
+    }
+
+    if (lastSyncedAt == null) {
+      return ConnectivityTier.stale;
+    }
+
+    final age = now.difference(lastSyncedAt);
+    final normalizedAge = age.isNegative ? Duration.zero : age;
+
+    if (normalizedAge > cacheConfidenceWindow) {
+      return ConnectivityTier.offline;
+    }
+
+    if (consecutiveSyncFailures >= 3) {
+      return ConnectivityTier.stale;
+    }
+
+    return ConnectivityTier.online;
+  }
+}

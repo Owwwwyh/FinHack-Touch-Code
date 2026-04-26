@@ -9,6 +9,11 @@ last-updated: 2026-04-25
 
 # Alibaba Cloud Services
 
+> Status note (2026-04-26): this doc describes the **target Alibaba design**. The
+> current repo only has real Terraform resources for `oss` and `tablestore`.
+> `infra/alibaba/fc`, `infra/alibaba/apigw`, and `infra/alibaba/eas` are still
+> scaffold contracts. See [docs/13-deployment.md](13-deployment.md) for deploy truth.
+
 Account region: **`ap-southeast-3` (Kuala Lumpur)** — closest to TNG's user base. KL
 region is GA for FC, OSS, Tablestore, KMS, RDS. PAI-EAS deployed in `ap-southeast-1`
 (Singapore) if KL availability changes.
