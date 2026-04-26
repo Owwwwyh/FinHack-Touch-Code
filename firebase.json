@@ -1,0 +1,8 @@
+{
+  "hosting": {
+    "site": "tng-anypay",
+    "public": "build/web",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [{"source": "**", "destination": "/index.html"}]
+  }
+}
