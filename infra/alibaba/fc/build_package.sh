@@ -23,6 +23,7 @@ cp -R "${REPO_ROOT}/backend/fc" "${STAGE_DIR}/fc"
 cp -R "${REPO_ROOT}/backend/lib" "${STAGE_DIR}/lib"
 cp -R "${REPO_ROOT}/backend/aws_lambda" "${STAGE_DIR}/aws_lambda"
 cp "${REPO_ROOT}/backend/"*_fc.py "${STAGE_DIR}/"
+cp "${REPO_ROOT}/backend/fc_http_adapter.py" "${STAGE_DIR}/"
 
 python3 -m pip install \
   --requirement "${SCRIPT_DIR}/requirements-fc.txt" \

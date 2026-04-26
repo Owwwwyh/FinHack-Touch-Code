@@ -53,16 +53,22 @@ def create_oss_bucket(environ):
 
 def _resolve_credentials(environ) -> tuple[str, str, str]:
     access_key_id = (
-        os.environ.get("TABLESTORE_ACCESS_KEY_ID")
+        os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_ID")
+        or os.environ.get("TABLESTORE_ACCESS_KEY_ID")
         or os.environ.get("OSS_ACCESS_KEY_ID")
         or os.environ.get("OTS_ACCESS_KEY_ID")
     )
     access_key_secret = (
-        os.environ.get("TABLESTORE_ACCESS_KEY_SECRET")
+        os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_SECRET")
+        or os.environ.get("TABLESTORE_ACCESS_KEY_SECRET")
         or os.environ.get("OSS_ACCESS_KEY_SECRET")
         or os.environ.get("OTS_ACCESS_KEY_SECRET")
     )
-    security_token = os.environ.get("TABLESTORE_SESSION_TOKEN") or os.environ.get("ALIBABA_SECURITY_TOKEN", "")
+    security_token = (
+        os.environ.get("ALIBABA_CLOUD_SECURITY_TOKEN")
+        or os.environ.get("TABLESTORE_SESSION_TOKEN")
+        or os.environ.get("ALIBABA_SECURITY_TOKEN", "")
+    )
 
     if access_key_id and access_key_secret:
         return access_key_id, access_key_secret, security_token
