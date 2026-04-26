@@ -222,17 +222,6 @@ class _EntryStage extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                amount > balance
-                    ? 'Exceeds offline cap (RM ${balance.toStringAsFixed(2)})'
-                    : 'Payer\'s safe offline balance: RM ${balance.toStringAsFixed(2)}',
-                style: TextStyle(
-                    fontSize: 11,
-                    color: amount > balance
-                        ? const Color(0xFFDC2626)
-                        : const Color(0xFF64748B)),
-              ),
             ],
           ),
         ),
